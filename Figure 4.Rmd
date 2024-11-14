@@ -1,0 +1,224 @@
+---
+title: "Figure 4"
+output: html_document
+date: "2024-11-14"
+---
+
+#load libraries
+```{r}
+library(devtools)
+library(ggplot2)
+library(ggpubr)
+library(damr)
+library(zeitgebr)
+library(ggetho)
+library(sleepr)
+library(dplyr)
+library(viridis)
+library(knitr)
+```
+
+#Clear workspace
+```{r}
+rm(list = ls())
+```
+
+#check working direcetory
+```{r}
+getwd()
+```
+#store path variable for genotype DGRP852
+```{r}
+DATA_DIR <- "/Users/anabelbyars/Desktop/Riddle Lab/Circadian analysis"
+```
+#check all files are present
+```{r}
+list.files(DATA_DIR, pattern="*.txt|*.csv")
+```
+
+#Define metavariables for the corresponding legend within each genotype
+```{r}
+data <- fread("metadata.csv")
+data
+```
+#Link meta data based on genotype
+```{r}
+metadata <- link_dam_metadata(data, result_dir = DATA_DIR)
+metadata
+```
+#Load into a behavr structure
+Exclude mated animals not under "OK" status, find and load matching data
+```{r}
+dt <- load_dam(metadata[status == "OK"])
+summary(dt)
+```
+
+#Rejoin data and divide by counts
+```{r}
+dt <- rejoin(dt)
+dt[, "nd"] <- dt[, "activity"] / dt[, "counts"]
+```
+#Turn back into behavr table
+```{r}
+dt <- behavr(dt, metadata [status == "OK"])
+```
+#Make 0 the start 7AM lights on time point
+```{r}
+dt[,t := t - hours(xmv(baseline_time))]
+```
+
+#activity v time for morning data
+```{r}
+data_morning <- fread("morning.csv")
+data_afternoon <- fread("afternoon.csv")
+data_evening <- fread("evening.csv")
+```
+
+#Link and prepare metadata for all 3 times
+```{r}
+m_metadata <- link_dam_metadata(data_morning, result_dir = DATA_DIR)
+m_metadata
+dt_m <- load_dam(m_metadata[status == "OK"])
+summary(dt_m)
+dt_m <- rejoin(dt_m)
+dt_m[, "nd"] <- dt_m[, "activity"] / dt_m[, "counts"]
+dt_m <- behavr(dt_m, m_metadata [status == "OK"])
+
+a_metadata <- link_dam_metadata(data_afternoon, result_dir = DATA_DIR)
+a_metadata
+dt_a <- load_dam(a_metadata[status == "OK"])
+summary(dt_a)
+dt_a <- rejoin(dt_a)
+dt_a[, "nd"] <- dt_a[, "activity"] / dt_a[, "counts"]
+dt_a <- behavr(dt_a, a_metadata [status == "OK"])
+
+e_metadata <- link_dam_metadata(data_evening, result_dir = DATA_DIR)
+e_metadata
+dt_e <- load_dam(e_metadata[status == "OK"])
+summary(dt_e)
+dt_e <- rejoin(dt_e)
+dt_e[, "nd"] <- dt_e[, "activity"] / dt_e[, "counts"]
+dt_e <- behavr(dt_e, e_metadata [status == "OK"])
+```
+
+#activity v time for morning data
+```{r}
+morning_t1 <- subset(dt_m, timepoint == "t1")
+
+afternoon_t1 <- subset(dt_a, timepoint == "t1")
+
+evening_t1 <- subset(dt_e, timepoint == "t1")
+```
+#graph data at 3 distinct times of day
+```{r}
+graph1 <- ggetho(morning_t1, aes(x = t, y = nd, colour = treatment)) + 
+  stat_pop_etho() +
+  facet_grid(sex ~ genotype) +
+  labs(y = "Activity", x = "Time (h)") + 
+  theme_bw() +
+  scale_color_manual(values = c("#0073C2FF", "#EFC000FF", "#BEBEBE"), name = "Treatment") +
+  scale_fill_manual(values = c("#0073C2FF", "#EFC000FF", "#BEBEBE"), name = "Treatment") +
+  scale_y_continuous(limits = c(0, 15),
+                     breaks = seq(0, 15, by = 3)) +
+  theme(strip.background = element_rect(fill = "white"), 
+        strip.text = element_text(colour = "black"),
+        panel.grid.major = element_blank()) 
+
+graph1
+```
+```{r}
+graph2 <- ggetho(afternoon_t1, aes(x = t, y = nd, colour = treatment)) + 
+  stat_pop_etho() +
+  facet_grid(sex ~ genotype) +
+  labs(y = "Activity", x = "Time (h)") + 
+  theme_bw() +
+  scale_color_manual(values = c("#0073C2FF", "#EFC000FF", "#BEBEBE"), name = "Treatment") +
+  scale_fill_manual(values = c("#0073C2FF", "#EFC000FF", "#BEBEBE"), name = "Treatment") +
+  scale_y_continuous(limits = c(0, 15),
+                     breaks = seq(0, 15, by = 3)) +
+  theme(strip.background = element_rect(fill = "white"), 
+        strip.text = element_text(colour = "black"),
+        panel.grid.major = element_blank())
+
+graph2
+```
+```{r}
+graph3 <- ggetho(evening_t1, aes(x = t, y = nd, colour = treatment)) + 
+  stat_pop_etho() +
+  facet_grid(sex ~ genotype) +
+  labs(y = "Activity", x = "Time (h)") + 
+  theme_bw() +
+  scale_color_manual(values = c("#0073C2FF", "#EFC000FF", "#BEBEBE"), name = "Treatment") +
+  scale_fill_manual(values = c("#0073C2FF", "#EFC000FF", "#BEBEBE"), name = "Treatment") +
+  scale_y_continuous(limits = c(0, 15),
+                     breaks = seq(0, 15, by = 3)) +
+  theme(strip.background = element_rect(fill = "white"), 
+        strip.text = element_text(colour = "black"),
+        panel.grid.major = element_blank()) 
+
+graph3
+```
+
+#Test normality with Kolmogorov-Smirnov test (>5000 values)
+
+```{r}
+ks_test_result1 <- ks.test(dt_m$nd, "pnorm", mean = mean(dt_m$nd), sd = sd(dt_m$nd))
+print(ks_test_result1)
+
+ks_test_result2 <- ks.test(dt_a$nd, "pnorm", mean = mean(dt_a$nd), sd = sd(dt_a$nd))
+print(ks_test_result2)
+
+ks_test_result3 <- ks.test(dt_e$nd, "pnorm", mean = mean(dt_e$nd), sd = sd(dt_e$nd))
+print(ks_test_result3)
+```
+
+#Ranked ANOVA
+```{r}
+dt_m$genotype <- as.factor(dt_m$genotype)
+dt_m$sex <- as.factor(dt_m$sex)
+dt_m$treatment <- as.factor(dt_m$treatment)
+dt_m$timepoint <- as.factor(dt_m$timepoint)
+
+a_morning <- dt_m[order(dt_m$nd), ]
+a_morning$rank <- 1:nrow(a_morning)
+a_morning <- aov(rank ~ genotype * sex * treatment, data = a_morning)
+summary(a_morning)
+```
+```{r}
+dt_a$genotype <- as.factor(dt_a$genotype)
+dt_a$sex <- as.factor(dt_a$sex)
+dt_a$treatment <- as.factor(dt_a$treatment)
+dt_a$timepoint <- as.factor(dt_a$timepoint)
+
+a_afternoon <- dt_a[order(dt_a$nd), ]
+a_afternoon$rank <- 1:nrow(a_afternoon)
+a_afternoon <- aov(rank ~ genotype * sex * treatment, data = a_afternoon)
+summary(a_afternoon)
+```
+```{r}
+dt_e$genotype <- as.factor(dt_e$genotype)
+dt_e$sex <- as.factor(dt_e$sex)
+dt_e$treatment <- as.factor(dt_e$treatment)
+dt_e$timepoint <- as.factor(dt_e$timepoint)
+
+a_evening <- dt_e[order(dt_e$nd), ]
+a_evening$rank <- 1:nrow(a_evening)
+a_evening <- aov(rank ~ genotype * sex * treatment, data = a_evening)
+summary(a_evening)
+```
+
+#Tukey test
+```{r}
+t_morning <- TukeyHSD(a_morning, conf.level=0.95)
+t_morning
+```
+```{r}
+t_afernoon <- TukeyHSD(a_afternoon, conf.level=0.95)
+t_afernoon
+```
+```{r}
+t_evening <- TukeyHSD(a_evening, conf.level=0.95)
+t_evening
+```
+
+
