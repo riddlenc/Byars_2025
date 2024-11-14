@@ -2,21 +2,21 @@
 Information associated with the Byars et al 2024 publication
 
 * Figure 1
-Data
-Script
+    - Data
+    - Script
 
 * Figure 2
-Data
-Script
+    - Data
+    - Script
 
 * Figure 3
-Data
-Script
+    - Data
+    - Script
 
 * Figure 4
-Data
-Script
+    - Data
+    - Script
 
 * Figure 5
-Data
-Script
+    - Data
+    - Script
