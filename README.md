@@ -42,5 +42,11 @@ Information associated with the Byars et al 2024 publication
 **2. Supplemental 2**
 
 - [Data]()
-- [Script] (https://github.com/riddlenc/Byars_2024/blob/957f77e9530881549a1884b0e5e624a670918baa/circadian_analysis.Rmd)
+- [Script]()
+
+**3. Supplemental 3**
+
+- [Data]()
+- [Script]()
+
 
