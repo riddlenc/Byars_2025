@@ -17,7 +17,7 @@ Information associated with the Byars et al 2024 publication
 
 **3. Figure 3**
 
-- [Data](https://github.com/riddlenc/Byars_2024/blob/957f77e9530881549a1884b0e5e624a670918baa/Data%203.xlsx.zip)
+- [Data](https://github.com/riddlenc/Byars_2024/blob/f9905750185d23c1a72d0f5396b9792be2f607be/Data%203.zip)
 - [Script](https://github.com/riddlenc/Byars_2024/blob/957f77e9530881549a1884b0e5e624a670918baa/Figure%203.Rmd)
 
      
