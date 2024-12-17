@@ -34,17 +34,12 @@ Information associated with the Byars et al 2024 publication
 
 ## Supplemental Figures
 
-**1. Supplemental 1**
+**1. Supplemental Figure 1**
 
 - [Data]()
 - [Script](https://github.com/riddlenc/Byars_2024/blob/957f77e9530881549a1884b0e5e624a670918baa/daily_activity_boxplot.Rmd)
 
-**2. Supplemental 2**
-
-- [Data]()
-- [Script]()
-
-**3. Supplemental 3**
+**2. Supplemental Figure 2**
 
 - [Data]()
 - [Script]()
