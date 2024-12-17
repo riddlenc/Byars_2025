@@ -1,0 +1,166 @@
+---
+title: "Figure 5"
+output: html_document
+date: "2024-11-14"
+---
+
+#load libraries
+```{r}
+library(readxl)
+library(writexl)
+library(survival)
+library(survminer)
+library(ggplot2)
+library(ggfortify)
+library(viridis)
+library(dplyr)
+library(here)
+library(ARTool)
+```
+#clear workspace
+```{r}
+rm(list = ls())
+```
+
+#check working directory
+```{r}
+getwd()
+```
+
+#Lifespan assay for 5D and 20D treatments combined
+set file name and load data for genotype (one at a time)
+```{r}
+dgrp852 <- read_excel("Longevity_852_2023_04_17.xlsx", sheet = "Master")
+
+dgrp304 <- read_excel("DGRP304_2023_09_25.xlsx", sheet = "Master")
+
+dgrp786 <- read_excel("DGRP786_2023_11_06.xlsx", sheet = "Master")
+
+dgrp301 <- read_excel("DGRP301_2024_06_17.xlsx", sheet = "Master")
+```
+
+#make sure parameters are factors so TukeyHSD works
+```{r}
+dgrp852$sex <- as.factor(dgrp852$sex)
+dgrp852$treatment <- as.factor(dgrp852$treatment)
+
+dgrp304$sex <- as.factor(dgrp304$sex)
+dgrp304$treatment <- as.factor(dgrp304$treatment)
+
+dgrp786$sex <- as.factor(dgrp786$sex)
+dgrp786$treatment <- as.factor(dgrp786$treatment)
+
+dgrp301$sex <- as.factor(dgrp301$sex)
+dgrp301$treatment <- as.factor(dgrp301$treatment)
+```
+
+#combine data for all genotypes
+```{r}
+survival_master <- rbind(dgrp304, dgrp786, dgrp852, dgrp301)
+```
+
+#sanity check 1
+```{r}
+km.model_genotype <- survfit(formula = Surv(death_day, status) ~ genotype, data = survival_master)
+km.model_genotype
+
+
+km.model_all <- survfit(formula = Surv(death_day, status) ~ genotype + sex + treatment, data = survival_master)
+km.model_all
+
+```
+
+#plot survival curves
+```{r}
+survival_plot <- ggsurvplot(
+  survfit(Surv(death_day, status) ~ treatment, data = survival_master),
+  facet.by = c("sex", "genotype"),
+  legend.title = "Treatment",
+  legend.labs = c("Control", "5-day", "20-day"),
+  xlab = "Days",
+  palette = c("#BEBEBE", "#EFC000FF", "#0073C2FF"),
+  surv.median.line = "v",
+  pval = TRUE)
+
+survival_plot
+```
+
+#censor lifespan data
+```{r}
+dgrp301_cen <- subset(dgrp301, status == 1)
+dgrp304_cen <- subset(dgrp304, status == 1)
+dgrp786_cen <- subset(dgrp786, status == 1)
+dgrp852_cen <- subset(dgrp852, status == 1)
+```
+
+#Normality Shapiro-Wilk test
+```{r}
+shapiro.test(dgrp301_cen$death_day)
+shapiro.test(dgrp304_cen$death_day)
+shapiro.test(dgrp786_cen$death_day)
+shapiro.test(dgrp852_cen$death_day)
+```
+
+#Ranked ANOVA for non-normal data
+301
+```{r}
+dgrp301_cen$genotype <- as.factor(dgrp301_cen$genotype)
+dgrp301_cen$sex <- as.factor(dgrp301_cen$sex)
+dgrp301_cen$treatment <- as.factor(dgrp301_cen$treatment)
+
+a2_301 <- dgrp301_cen[order(dgrp301_cen$death_day), ]
+a2_301$rank <- 1:nrow(a2_301)
+a2_301 <- aov(rank ~ sex * treatment, data = a2_301)
+summary(a2_301)
+```
+304
+```{r}
+dgrp304_cen$genotype <- as.factor(dgrp304_cen$genotype)
+dgrp304_cen$sex <- as.factor(dgrp304_cen$sex)
+dgrp304_cen$treatment <- as.factor(dgrp304_cen$treatment)
+
+a2_304 <- dgrp304_cen[order(dgrp304_cen$death_day), ]
+a2_304$rank <- 1:nrow(a2_304)
+a2_304 <- aov(rank ~ sex * treatment, data = a2_304)
+summary(a2_304)
+```
+786
+```{r}
+dgrp786_cen$genotype <- as.factor(dgrp786_cen$genotype)
+dgrp786_cen$sex <- as.factor(dgrp786_cen$sex)
+dgrp786_cen$treatment <- as.factor(dgrp786_cen$treatment)
+
+a2_786 <- dgrp786_cen[order(dgrp786_cen$death_day), ]
+a2_786$rank <- 1:nrow(a2_786)
+a2_786 <- aov(rank ~ sex * treatment, data = a2_786)
+summary(a2_786)
+```
+852
+```{r}
+dgrp852_cen$genotype <- as.factor(dgrp852_cen$genotype)
+dgrp852_cen$sex <- as.factor(dgrp852_cen$sex)
+dgrp852_cen$treatment <- as.factor(dgrp852_cen$treatment)
+
+a2_852 <- dgrp852_cen[order(dgrp852_cen$death_day), ]
+a2_852$rank <- 1:nrow(a2_852)
+a2_852 <- aov(rank ~ sex * treatment, data = a2_852)
+summary(a2_852)
+```
+
+#Tukey HSD test
+```{r}
+t1_301 <- TukeyHSD(a2_301, conf.level = 0.95)
+t1_301
+```
+```{r}
+t1_304 <- TukeyHSD(a2_304, conf.level = 0.95)
+t1_304
+```
+```{r}
+t1_786 <- TukeyHSD(a2_786, conf.level = 0.95)
+t1_786
+```
+```{r}
+t1_852 <- TukeyHSD(a2_852, conf.level = 0.95)
+t1_852
+```
