@@ -1,0 +1,83 @@
+---
+title: "Supplemental Figure 2"
+output: html_document
+date: "2024-12-17"
+---
+
+#load libraries
+```{r}
+library(devtools)
+library(ggplot2)
+library(ggpubr)
+library(damr)
+library(zeitgebr)
+library(ggetho)
+library(sleepr)
+library(dplyr)
+library(viridis)
+library(knitr)
+library(afex)
+library(lme4)
+library(reshape2)
+```
+
+#clear workspace
+```{r}
+rm(list = ls())
+```
+#check working direcetory
+```{r}
+getwd()
+```
+#store path variable for genotype DGRP852
+```{r}
+DATA_DIR <- "/Users/anabelbyars/Desktop/Riddle Lab/Circadian analysis"
+```
+#check all files are present
+```{r}
+list.files(DATA_DIR, pattern="*.txt|*.csv")
+```
+#Define metavariables for the corresponding legend within each genotype
+```{r}
+data <- fread("metadata.csv")
+data
+```
+#link meta data based on genotype
+```{r}
+metadata <- link_dam_metadata(data, result_dir = DATA_DIR)
+metadata
+```
+#load into a behavr structure
+Exclude mated animals not under "OK" status, find and load matching data
+```{r}
+dt <- load_dam(metadata[status == "OK"])
+summary(dt)
+```
+#rejoin data and divide by counts
+```{r}
+dt <- rejoin(dt)
+dt[, "nd"] <- dt[, "activity"] / dt[, "counts"]
+```
+#turn back into behavr table
+```{r}
+dt <- behavr(dt, metadata [status == "OK"])
+```
+#Mmake 0 start at lights on 7AM
+```{r}
+dt[,t := t - hours(xmv(baseline_time))]
+```
+#plot activity v time
+```{r}
+graph <- ggetho(dt, aes(x = t, y = nd, colour = treatment)) + 
+  facet_grid(sex ~ timepoint ~ genotype) + 
+  theme_bw() +
+  scale_color_manual(values = c("#0073C2FF", "#EFC000FF", "#BEBEBE"), name = "Treatment") +
+  scale_fill_manual(values = c("#0073C2FF", "#EFC000FF", "#BEBEBE"), name = "Treatment") +
+  theme(strip.background = element_rect(fill = "white")) + 
+  theme(strip.text = element_text(colour = "black")) +
+  annotate('rect', xmin = -28800, xmax = 0, ymin = 0, ymax = 12, alpha = 0.5, fill = "darkgrey") +
+  annotate('rect', xmin = 43200, xmax = 64800, ymin = 0, ymax = 12, alpha = 0.5, fill = "darkgrey") +
+  stat_pop_etho()
+
+graph
+```
