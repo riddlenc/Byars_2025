@@ -42,6 +42,6 @@ Information associated with the Byars et al 2024 publication
 **2. Supplemental Figure S2**
 
 - [Data](https://github.com/riddlenc/Byars_2024/blob/93ee9bf246319b85d72edb0ddcf7fad77b0c31c7/Data%20S2.zip)
-- [Script]()
+- [Script](https://github.com/riddlenc/Byars_2024/blob/62a5b6febc696ec1fc737c54972dc9acc03cd1af/Supplemental%20Figure%202.Rmd)
 
 
