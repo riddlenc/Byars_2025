@@ -1,0 +1,166 @@
+---
+title: "Figure 1"
+output: html_document
+date: "2024-11-14"
+---
+
+#load libraries
+```{r}
+library(ggplot2)
+library(damr)
+library(ggetho)
+library(dplyr)
+library(here)
+library(ARTool)
+```
+With "here" we do not need to set a working directory. Keep script and data in same folder as the Data subfolder (has .txt files) and the metadata.csv - It should already be setup and ready to use in the Data 1.zip.
+
+#clear workspace
+```{r}
+rm(list = ls())
+```
+#check working direcetory
+```{r}
+getwd()
+```
+#set file name
+```{r}
+DATA_DIR <- "Data"
+```
+#check all files are present
+```{r}
+list.files(DATA_DIR, pattern="*.txt|*.csv")
+```
+
+
+#define metavariables for the corresponding legend within each genotype
+```{r}
+data <- fread("metadata.csv")
+data
+```
+#link metadata based on genotype
+```{r}
+metadata <- link_dam_metadata(data, result_dir = DATA_DIR)
+metadata
+```
+#load into a behavr structure
+Exclude mated animals not under "OK" status, find and load matching data
+```{r}
+dt <- load_dam(metadata[status == "OK"])
+```
+#sanity check
+```{r}
+summary(dt)
+```
+#rejoin data and divide by counts, nd is normalized activity per fly
+```{r}
+dt <- rejoin(dt)
+dt[, "nd"] <- dt[, "activity"] / dt[, "counts"]
+```
+#turn back into behavr table
+```{r}
+dt <- behavr(dt, metadata [status == "OK"])
+```
+#make 0 lights on 7AM
+```{r}
+dt[,t := t - hours(xmv(baseline_time))]
+```
+#select controls on day 26 from data frame dt
+```{r}
+genotype_controls <-dt[c(7201:16128, 61633:69408, 129889:139104, 253441:262368)]
+```
+
+
+#plot the controls on day 26, activity over 24 hours
+```{r}
+graph_controls <- ggetho(genotype_controls, aes(x = t, y = nd, colour = treatment)) + 
+  stat_pop_etho() + 
+  facet_grid(sex ~ genotype) +
+  labs(y = "Activity per fly", x = "Time (h)") + 
+  theme_bw() +
+  scale_color_manual(values = c("purple"), name = "Treatment") +
+  scale_fill_manual(values = c("purple"), name = "Treatment") +
+  theme(strip.background = element_rect(fill = "white"), 
+        strip.text = element_text(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = "none") +
+  annotate('rect', xmin = -28800, xmax = 0, ymin = 0, ymax = 12, alpha = 0.3, fill = "darkgrey") +
+  annotate('rect', xmin = 43200, xmax = 64800, ymin = 0, ymax = 12, alpha = 0.3, fill = "darkgrey")
+
+graph_controls
+
+```
+
+
+#aggregate the data by vial_id to analyze the total activity
+```{r}
+activity_summary <- genotype_controls %>% 
+  group_by(genotype, sex, region_id) %>% 
+  summarise(
+    mean_act = mean(nd, na.rm = TRUE),
+    total_act = sum(nd, na.rm = TRUE),
+    .groups = "drop"
+  )
+```
+
+#Normality test 1
+```{r}
+shapiro.test(activity_summary$total_act)
+```
+
+Test normality again on ranked-transformed data
+#Normality test 2
+```{r}
+a_controls <- activity_summary[order(activity_summary$total_act), ]
+a_controls$rank <- 1:nrow(a_controls)
+shapiro.test(a_controls$rank)
+```
+
+
+Non-parametric test that does not assume normality
+Limitations: Loss of power, assumes distribution of groups is similar
+#Ranked ANOVA
+```{r}
+activity_summary$genotype <- as.factor(activity_summary$genotype)
+activity_summary$sex <- as.factor(activity_summary$sex)
+
+a_controls_result <- aov(rank ~ sex * genotype, data = a_controls)
+summary(a_controls_result)
+```
+
+
+Limitation: Warning that F values are not all 0 and Art may not be appropriate
+#Art ANOVA
+```{r}
+Art_ANOVA_controls <- art(total_act ~ genotype*sex, data = activity_summary)
+summary(Art_ANOVA_controls)
+anova(Art_ANOVA_controls)
+```
+The ART ANOVA shows warnings. Run Kruskal test.
+
+
+Non-parametric test to compare independent groups.
+Limitations: Loss of power, assumes distribution of groups is similar
+#Kruskal test (non-parametric tests for main effects)
+```{r}
+kruskal.test(total_act ~ sex, data = activity_summary)
+kruskal.test(total_act ~ genotype, data = activity_summary)
+```
+
+
+For normally distributed data
+Limitation: This data is not normal
+#regular ANOVA
+```{r}
+a_normal <- aov(total_act ~ sex*genotype, data = activity_summary)
+summary(a_normal)
+```
+
+
+#Tukey test for pairwise comparison
+```{r}
+tukey_controls <- TukeyHSD(a_controls_result, conf.level=0.95)
+tukey_controls
+```
+
