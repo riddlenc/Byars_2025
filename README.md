@@ -6,7 +6,7 @@ Information associated with the Byars et al 2024 publication
 **1. Figure 1**
 
 - [Data](https://github.com/riddlenc/Byars_2024/blob/d6a1593d94151f003c761cf1a17adac0944018c0/Data_1.zip)
-- [Script](https://github.com/riddlenc/Byars_2024/blob/9125645ab570f7240fdc5fe81c54d736d70cad1b/Figure%201.Rmd)
+- [Script](https://github.com/riddlenc/Byars_2024/blob/878af392a9292cf41416ca184f9ed31b8014cdaf/Figure%201.Rmd)
 
 
 **2. Figure 2**
