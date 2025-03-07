@@ -1,0 +1,1408 @@
+---
+title: "Figure 3"
+output: html_document
+date: "2024-11-14"
+---
+
+#load libraries
+```{r}
+library(ggplot2)
+library(damr)
+library(ggetho)
+library(dplyr)
+library(here)
+library(ARTool)
+library(rstatix)
+```
+
+#Clear workspace
+```{r}
+rm(list = ls())
+```
+
+#check working direcetory
+```{r}
+getwd()
+```
+#store path variable
+```{r}
+DATA_DIR <- "Data"
+```
+#check all files are present
+```{r}
+list.files(DATA_DIR, pattern="*.txt|*.csv")
+```
+
+#Define metavariables for the corresponding legend within each genotype
+```{r}
+data <- fread("metadata.csv")
+data
+```
+#Link meta data based on genotype
+```{r}
+metadata <- link_dam_metadata(data, result_dir = DATA_DIR)
+metadata
+```
+#Load into a behavr structure
+Exclude mated animals not under "OK" status, find and load matching data
+```{r}
+dt <- load_dam(metadata[status == "OK"])
+summary(dt)
+```
+
+#Rejoin data and divide by counts
+```{r}
+dt <- rejoin(dt)
+dt[, "nd"] <- dt[, "activity"] / dt[, "counts"]
+```
+#Turn back into behavr table
+```{r}
+dt <- behavr(dt, metadata [status == "OK"])
+```
+#Make 0 the start 7AM lights on time point
+```{r}
+dt[,t := t - hours(xmv(baseline_time))]
+```
+
+
+Create a graph of day 26 activity v time with control, 5d and 20d groups. This will be used to make Figure 3, and boxes will be added around the times of interest: 6-8AM, 12-2PM, and 6-8PM in Adobe illustrator.
+# Subset data from day 26
+```{r}
+dt_t1 <- subset(dt, timepoint == "t1")
+```
+
+# Shift the time for genotypes 786 and 304 by -3600 seconds
+DGRP786 and DGRP304 were the only two genotypes impacted by daylights savings. So set them back by 1hr. In the metadata sheet I already set the 0 with the daylights savings accounted for so instead of 7=0 it was 6=0.
+```{r}
+dt_t1$t <- ifelse(dt_t1$genotype %in% c(786, 304), dt_t1$t - 3600, dt_t1$t)
+```
+
+#graph activity on day 26
+First graph a version with the y-axis scaled across genotypes. This will be kept on hand for posters or presentations.
+```{r}
+graph_t1 <- ggetho(dt_t1, aes(x = t, y = nd, colour = treatment)) + 
+  facet_grid(sex ~ genotype) + 
+  labs(y = "Activity per fly", x = "Time (h)") + 
+  theme_bw() +
+  scale_color_manual(values = c("#0073C2FF", "#EFC000FF", "#BEBEBE"), name = "Treatment") +
+  scale_fill_manual(values = c("#0073C2FF", "#EFC000FF", "#BEBEBE"), name = "Treatment") +
+  theme(strip.background = element_rect(fill = "white")) + 
+  theme(strip.text = element_text(colour = "black")) +
+  annotate('rect', xmin = -25200, xmax = 0, ymin = 0, ymax = 12, alpha = 0.5, fill = "darkgrey") +
+  annotate('rect', xmin = 43200, xmax = 59500, ymin = 0, ymax = 12, alpha = 0.5, fill = "darkgrey") +
+  stat_pop_etho() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = "none")
+
+graph_t1
+```
+
+For the manuscript, we are want to look for changes in treatment effect at these different times of day. So, the y-axis will not scaled across genotypes.
+#subset out day 26 data for all 4 timepoints to graph separately
+```{r}
+dt_t1_301 <- subset(dt_t1, genotype == "301")
+dt_t1_304 <- subset(dt_t1, genotype == "304")
+dt_t1_786 <- subset(dt_t1, genotype == "786")
+dt_t1_852 <- subset(dt_t1, genotype == "852")
+```
+
+#graph 301
+301 was not affected by the daylights savings
+```{r}
+graph_301 <- ggetho(dt_t1_301, aes(x = t, y = nd, colour = treatment)) + 
+  facet_grid(sex ~ genotype) + 
+  labs(y = "Activity per fly", x = "Time (h)") + 
+  theme_bw() +
+  scale_color_manual(values = c("#0073C2FF", "#EFC000FF", "#BEBEBE"), name = "Treatment") +
+  scale_fill_manual(values = c("#0073C2FF", "#EFC000FF", "#BEBEBE"), name = "Treatment") +
+  theme(strip.background = element_rect(fill = "white")) + 
+  theme(strip.text = element_text(colour = "black")) +
+  annotate('rect', xmin = -25200, xmax = 0, ymin = 0, ymax = 12.5, alpha = 0.5, fill = "darkgrey") +
+  annotate('rect', xmin = 43200, xmax = 59500, ymin = 0, ymax = 12.5, alpha = 0.5, fill = "darkgrey") +
+  annotate('rect', xmin = -3600, xmax = 3600, ymin = 0, ymax = 12.5, alpha = 0, color = "red", linewidth = 1) +  # 6-8 AM
+  annotate('rect', xmin = 18000, xmax = 25200, ymin = 0, ymax = 12.5, alpha = 0, color = "red", linewidth = 1) +  # 12-2 PM
+  annotate('rect', xmin = 39600, xmax = 46800, ymin = 0, ymax = 12.5, alpha = 0, color = "red", linewidth = 1) +  # 6-8 PM
+  stat_pop_etho() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = "none")
+
+graph_301
+```
+
+Once again, DGRP786 and DGRP304 were the only two genotypes impacted by daylights savings. So set them back by 1hr. In the metadata sheet I already set the 0 with the daylights savings accounted for so instead of 7=0 it was 6=0.
+#Shift the lines left 1hr
+```{r}
+dt_t1_304$t <- dt_t1_304$t - 3600
+```
+#graph 304
+```{r}
+graph_304 <- ggetho(dt_t1_304, aes(x = t, y = nd, colour = treatment)) + 
+  facet_grid(sex ~ genotype) + 
+  labs(y = "Activity per fly", x = "Time (h)") + 
+  theme_bw() +
+  scale_color_manual(values = c("#0073C2FF", "#EFC000FF", "#BEBEBE"), name = "Treatment") +
+  scale_fill_manual(values = c("#0073C2FF", "#EFC000FF", "#BEBEBE"), name = "Treatment") +
+  theme(strip.background = element_rect(fill = "white")) + 
+  theme(strip.text = element_text(colour = "black")) +
+  annotate('rect', xmin = -25200, xmax = 0, ymin = 0, ymax = 3.2, alpha = 0.5, fill = "darkgrey") +
+  annotate('rect', xmin = 43200, xmax = 59500, ymin = 0, ymax = 3.2, alpha = 0.5, fill = "darkgrey") +
+  annotate('rect', xmin = -3600, xmax = 3600, ymin = 0, ymax = 3.2, alpha = 0, color = "red", linewidth = 1) +  # 6-8 AM
+  annotate('rect', xmin = 18000, xmax = 25200, ymin = 0, ymax = 3.2, alpha = 0, color = "red", linewidth = 1) +  # 12-2 PM
+  annotate('rect', xmin = 39600, xmax = 46800, ymin = 0, ymax = 3.2, alpha = 0, color = "red", linewidth = 1) +  # 6-8 PM
+  stat_pop_etho() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = "none")
+
+graph_304
+```
+
+#Shift the lines left 1hr
+```{r}
+dt_t1_786$t <- dt_t1_786$t - 3600
+```
+#graph 786
+```{r}
+graph_786 <- ggetho(dt_t1_786, aes(x = t, y = nd, colour = treatment)) + 
+  facet_grid(sex ~ genotype) + 
+  labs(y = "Activity per fly", x = "Time (h)") + 
+  theme_bw() +
+  scale_color_manual(values = c("#0073C2FF", "#EFC000FF", "#BEBEBE"), name = "Treatment") +
+  scale_fill_manual(values = c("#0073C2FF", "#EFC000FF", "#BEBEBE"), name = "Treatment") +
+  theme(strip.background = element_rect(fill = "white")) + 
+  theme(strip.text = element_text(colour = "black")) +
+  annotate('rect', xmin = -25200, xmax = 0, ymin = 0, ymax = 5.6, alpha = 0.5, fill = "darkgrey") +
+  annotate('rect', xmin = 43200, xmax = 59500, ymin = 0, ymax = 5.6, alpha = 0.5, fill = "darkgrey") +
+  annotate('rect', xmin = -3600, xmax = 3600, ymin = 0, ymax = 5.6, alpha = 0, color = "red", linewidth = 1) +  # 6-8 AM
+  annotate('rect', xmin = 18000, xmax = 25200, ymin = 0, ymax = 5.6, alpha = 0, color = "red", linewidth = 1) +  # 12-2 PM
+  annotate('rect', xmin = 39600, xmax = 46800, ymin = 0, ymax = 5.6, alpha = 0, color = "red", linewidth = 1) +  # 6-8 PM
+  stat_pop_etho() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = "none")
+
+graph_786
+```
+
+#graph 852
+852 was not affected by the daylights savings
+```{r}
+graph_852 <- ggetho(dt_t1_852, aes(x = t, y = nd, colour = treatment)) + 
+  facet_grid(sex ~ genotype) + 
+  labs(y = "Activity per fly", x = "Time (h)") + 
+  theme_bw() +
+  scale_color_manual(values = c("#0073C2FF", "#EFC000FF", "#BEBEBE"), name = "Treatment") +
+  scale_fill_manual(values = c("#0073C2FF", "#EFC000FF", "#BEBEBE"), name = "Treatment") +
+  theme(strip.background = element_rect(fill = "white")) + 
+  theme(strip.text = element_text(colour = "black")) +
+  annotate('rect', xmin = -25200, xmax = 0, ymin = 0, ymax = 11.5, alpha = 0.5, fill = "darkgrey") +
+  annotate('rect', xmin = 43200, xmax = 59500, ymin = 0, ymax = 11.5, alpha = 0.5, fill = "darkgrey") +
+  annotate('rect', xmin = -3600, xmax = 3600, ymin = 0, ymax = 11.5, alpha = 0, color = "red", linewidth = 1) +  # 6-8 AM
+  annotate('rect', xmin = 18000, xmax = 25200, ymin = 0, ymax = 11.5, alpha = 0, color = "red", linewidth = 1) +  # 12-2 PM
+  annotate('rect', xmin = 39600, xmax = 46800, ymin = 0, ymax = 11.5, alpha = 0, color = "red", linewidth = 1) +  # 6-8 PM
+  stat_pop_etho() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = "none")
+
+graph_852
+```
+
+Great! Now that we have our graph we will subset out the data for our three times. We are using data taken from 6-8AM morning, 12-2PM afternoon, and 6-8PM evening to look at times around 7AM lights on, 1PM a time of typical inactivity, and 7PM lights off.
+#load morning, afternoon, and evening timepoint data files
+```{r}
+data_morning <- fread("morning.csv")
+data_afternoon <- fread("afternoon.csv")
+data_evening <- fread("evening.csv")
+```
+
+#link and prepare metadata for all three timepoints
+```{r}
+m_metadata <- link_dam_metadata(data_morning, result_dir = DATA_DIR)
+m_metadata
+dt_m <- load_dam(m_metadata[status == "OK"])
+summary(dt_m)
+dt_m <- rejoin(dt_m)
+dt_m[, "nd"] <- dt_m[, "activity"] / dt_m[, "counts"]
+dt_m <- behavr(dt_m, m_metadata [status == "OK"])
+
+a_metadata <- link_dam_metadata(data_afternoon, result_dir = DATA_DIR)
+a_metadata
+dt_a <- load_dam(a_metadata[status == "OK"])
+summary(dt_a)
+dt_a <- rejoin(dt_a)
+dt_a[, "nd"] <- dt_a[, "activity"] / dt_a[, "counts"]
+dt_a <- behavr(dt_a, a_metadata [status == "OK"])
+
+e_metadata <- link_dam_metadata(data_evening, result_dir = DATA_DIR)
+e_metadata
+dt_e <- load_dam(e_metadata[status == "OK"])
+summary(dt_e)
+dt_e <- rejoin(dt_e)
+dt_e[, "nd"] <- dt_e[, "activity"] / dt_e[, "counts"]
+dt_e <- behavr(dt_e, e_metadata [status == "OK"])
+```
+
+#subset data for "t1" or day 26 for morning, afternoon, and evening
+We are looking specifically at t1/day 26 because this is the first age with both 5-day and 20-day disturbance treatments. This is immediately following 20-day disturbance.
+```{r}
+morning_t1 <- subset(dt_m, timepoint == "t1")
+
+afternoon_t1 <- subset(dt_a, timepoint == "t1")
+
+evening_t1 <- subset(dt_e, timepoint == "t1")
+```
+
+#Analysis of treatment effects at morning, afternoon, and evening on total activity
+---
+Proceed to the statistical analysis. We use type 3 ANOVAs and pairwise T-test to look for significant treatment effects on total activity at these three times of day. Also, we use datasets with outliers removed in all our analysis below as the has previously proved to be the best model.
+---
+
+Morning, 6-8AM lights on at 7AM
+#aggregate the data by region_id to analyze the total activity
+```{r}
+totalactivity_morning <- morning_t1 %>% 
+  group_by(genotype, sex, treatment, region_id) %>% 
+  summarise(
+    mean_act = mean(nd, na.rm = TRUE),
+    total_act = sum(nd, na.rm = TRUE),
+    .groups = "drop"
+  )
+```
+#shapiro-wilk normality test on totalactivity_morning
+```{r}
+totalactivity_morning %>%
+  group_by(genotype, sex, treatment) %>%
+  shapiro_test(total_act) %>%
+  subset(p < 0.05)
+```
+13 groups are not normal
+
+# Kruskal test (non-parametric tests for main effects)
+```{r}
+  kruskal.test(total_act ~ sex, data = totalactivity_morning)
+  kruskal.test(total_act ~ genotype, data = totalactivity_morning)
+  kruskal.test(total_act ~ treatment, data = totalactivity_morning)
+```
+
+#outlier and extreme outlier detection
+```{r}
+totalactivity_morning %>%
+  group_by(treatment, genotype, sex) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,  # Regular lower bound for outliers
+    upper_bound = Q3 + 1.5 * IQR,  # Regular upper bound for outliers
+    extreme_lower_bound = Q1 - 3 * IQR,  # Extreme lower bound for extreme outliers
+    extreme_upper_bound = Q3 + 3 * IQR,  # Extreme upper bound for extreme outliers
+    outlier_flag = total_act < lower_bound | total_act > upper_bound,
+    extreme_outlier_flag = total_act < extreme_lower_bound | total_act > extreme_upper_bound
+  ) %>%
+  ungroup() %>%
+  summarize(
+    outlier_count = sum(outlier_flag),
+    extreme_outlier_count = sum(extreme_outlier_flag)
+  )
+```
+We have 26 outliers to remove
+
+#remove all the outliers from totalactivity_morning
+```{r}
+totalactivity_morning_outliers <- totalactivity_morning %>%
+  group_by(treatment, genotype, sex) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,
+    upper_bound = Q3 + 1.5 * IQR,
+    outlier_flag = total_act < lower_bound | total_act > upper_bound
+  ) %>%
+  ungroup() %>%
+  filter(outlier_flag == FALSE) %>%
+  select(-Q1, -Q3, -IQR, -lower_bound, -upper_bound)
+```
+#Normality test on totalactivity_morning_outliers, which is data with all outliers removed
+```{r}
+totalactivity_morning_outliers %>%
+  group_by(treatment, sex, genotype) %>%
+  shapiro_test(total_act) %>%
+  subset(p < 0.05)
+```
+With outliers removed, only 5 groups are not normal
+
+#convert genotype, sex, and treatment variables to factors
+```{r}
+totalactivity_morning$genotype <- as.factor(totalactivity_morning$genotype)
+totalactivity_morning$sex <- as.factor(totalactivity_morning$sex)
+totalactivity_morning$treatment <- as.factor(totalactivity_morning$treatment)
+
+totalactivity_morning_outliers$genotype <- as.factor(totalactivity_morning_outliers$genotype)
+totalactivity_morning_outliers$sex <- as.factor(totalactivity_morning_outliers$sex)
+totalactivity_morning_outliers$treatment <- as.factor(totalactivity_morning_outliers$treatment)
+```
+
+#mixed-effects model analysis with Type III ANOVA for totalactivity_morning_outliers
+```{r}
+totalactivity_morning_outliers_aov <- aov(total_act ~ sex * genotype * treatment, data = totalactivity_morning_outliers)
+Anova(totalactivity_morning_outliers_aov, type = 3)
+```
+#rerun model with nonsignificant interactions removed
+```{r}
+totalactivity_morning_rerun_aov <- aov(total_act ~ sex + genotype + treatment + sex:genotype, data = totalactivity_morning_outliers)
+Anova(totalactivity_morning_rerun_aov, type = 3)
+```
+sex, genotype, sex:genotype significant
+
+We will now run a Q-Q plot and normality test for the best dataset
+# Q-Q plot of residuals
+Change the data name as needed to test
+```{r}
+morning_residuals <- resid(totalactivity_morning_outliers_aov)
+qqnorm(morning_residuals)
+qqline(morning_residuals, col = "red")
+```
+#check normality no residuals
+```{r}
+shapiro.test(morning_residuals)
+```
+Data not normal
+
+
+Although neither Kruskal nor type 3 ANOVA showed significant treatment effect at the morning timepoint, we will still continue the search.
+
+Now we will subset by specific genotype/sex groupings, these are all the same age (day 26), to check again for treatment effects on total activity.
+#subset the morning timepoint by genotype
+```{r}
+m301_tot <- subset(totalactivity_morning, genotype == "301")
+m304_tot <- subset(totalactivity_morning, genotype == "304")
+m786_tot <- subset(totalactivity_morning, genotype == "786")
+m852_tot <- subset(totalactivity_morning, genotype == "852")
+```
+#now subset again by sex
+t3 data removed due to DAMs glitching
+```{r}
+m301_tot_females <- m301_tot %>% filter(sex == "F")
+m301_tot_males <- m301_tot %>% filter(sex == "M")
+
+m304_tot_females <- m304_tot %>% filter(sex == "F")
+m304_tot_males <- m304_tot %>% filter(sex == "M")
+
+m786_tot_females <- m786_tot %>% filter(sex == "F")
+m786_tot_males <- m786_tot %>% filter(sex == "M")
+
+m852_tot_females <- m852_tot %>% filter(sex == "F")
+m852_tot_males <- m852_tot %>% filter(sex == "M")
+```
+#shapiro-wilk normality on the subset data
+change dataset as needed
+```{r}
+m301_tot_females %>%
+  group_by(treatment) %>%
+  shapiro_test(total_act) %>%
+  subset(p < 0.05)
+```
+301 females, 304 females, 304 males, 786 females, 786 males, 852 females, and 852 males all had not normal groups
+
+#Kruskal test (non-parametric tests for main effects)
+Now we are going to check treatment
+```{r}
+  kruskal.test(total_act ~ treatment, data = m301_tot_females)
+  kruskal.test(total_act ~ treatment, data = m301_tot_males)
+  kruskal.test(total_act ~ treatment, data = m304_tot_females)
+  kruskal.test(total_act ~ treatment, data = m304_tot_males)
+  kruskal.test(total_act ~ treatment, data = m786_tot_females)
+  kruskal.test(total_act ~ treatment, data = m786_tot_males)
+  kruskal.test(total_act ~ treatment, data = m852_tot_females)
+  kruskal.test(total_act ~ treatment, data = m852_tot_males)
+```
+#adjust KWs for multiple testing
+```{r}
+p <- c(0.1077, 0.6276, 0.00481, 0.1861, 0.8901, 0.001157, 0.06269, 0.569)
+p.adjust(p, method = "fdr", n = length(p))
+```
+304 females, 786 males sig treatment effect
+
+#remove all the outliers from all the groups
+```{r}
+m301_tot_females_outliers <- m301_tot_females %>%
+  group_by(treatment) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,
+    upper_bound = Q3 + 1.5 * IQR,
+    outlier_flag = total_act < lower_bound | total_act > upper_bound
+  ) %>%
+  ungroup() %>%
+  filter(outlier_flag == FALSE) %>%
+  select(-Q1, -Q3, -IQR, -lower_bound, -upper_bound)
+
+m301_tot_males_outliers <- m301_tot_males %>%
+  group_by(treatment) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,
+    upper_bound = Q3 + 1.5 * IQR,
+    outlier_flag = total_act < lower_bound | total_act > upper_bound
+  ) %>%
+  ungroup() %>%
+  filter(outlier_flag == FALSE) %>%
+  select(-Q1, -Q3, -IQR, -lower_bound, -upper_bound)
+
+m304_tot_females_outliers <- m304_tot_females %>%
+  group_by(treatment) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,
+    upper_bound = Q3 + 1.5 * IQR,
+    outlier_flag = total_act < lower_bound | total_act > upper_bound
+  ) %>%
+  ungroup() %>%
+  filter(outlier_flag == FALSE) %>%
+  select(-Q1, -Q3, -IQR, -lower_bound, -upper_bound)
+
+m304_tot_males_outliers <- m304_tot_males %>%
+  group_by(treatment) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,
+    upper_bound = Q3 + 1.5 * IQR,
+    outlier_flag = total_act < lower_bound | total_act > upper_bound
+  ) %>%
+  ungroup() %>%
+  filter(outlier_flag == FALSE) %>%
+  select(-Q1, -Q3, -IQR, -lower_bound, -upper_bound)
+
+m786_tot_females_outliers <- m786_tot_females %>%
+  group_by(treatment) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,
+    upper_bound = Q3 + 1.5 * IQR,
+    outlier_flag = total_act < lower_bound | total_act > upper_bound
+  ) %>%
+  ungroup() %>%
+  filter(outlier_flag == FALSE) %>%
+  select(-Q1, -Q3, -IQR, -lower_bound, -upper_bound)
+
+m786_tot_males_outliers <- m786_tot_males %>%
+  group_by(treatment) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,
+    upper_bound = Q3 + 1.5 * IQR,
+    outlier_flag = total_act < lower_bound | total_act > upper_bound
+  ) %>%
+  ungroup() %>%
+  filter(outlier_flag == FALSE) %>%
+  select(-Q1, -Q3, -IQR, -lower_bound, -upper_bound)
+
+m852_tot_females_outliers <- m852_tot_females %>%
+  group_by(treatment) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,
+    upper_bound = Q3 + 1.5 * IQR,
+    outlier_flag = total_act < lower_bound | total_act > upper_bound
+  ) %>%
+  ungroup() %>%
+  filter(outlier_flag == FALSE) %>%
+  select(-Q1, -Q3, -IQR, -lower_bound, -upper_bound)
+
+m852_tot_males_outliers <- m852_tot_males %>%
+  group_by(treatment) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,
+    upper_bound = Q3 + 1.5 * IQR,
+    outlier_flag = total_act < lower_bound | total_act > upper_bound
+  ) %>%
+  ungroup() %>%
+  filter(outlier_flag == FALSE) %>%
+  select(-Q1, -Q3, -IQR, -lower_bound, -upper_bound)
+```
+
+#Normality test on data with outliers removed
+change the dataset name to check each one
+```{r}
+m852_tot_females_outliers %>%
+  group_by(treatment) %>%
+  shapiro_test(total_act) %>%
+  subset(p < 0.05)
+```
+removing outliers helped with the normality
+
+#convert the treatment variable to a factor
+```{r}
+m301_tot_females_outliers$treatment <- as.factor(m301_tot_females_outliers$treatment)
+m301_tot_males_outliers$treatment <- as.factor(m301_tot_males_outliers$treatment)
+m304_tot_females_outliers$treatment <- as.factor(m304_tot_females_outliers$treatment)
+m304_tot_males_outliers$treatment <- as.factor(m304_tot_males_outliers$treatment)
+m786_tot_females_outliers$treatment <- as.factor(m786_tot_females_outliers$treatment)
+m786_tot_males_outliers$treatment <- as.factor(m786_tot_males_outliers$treatment)
+m852_tot_females_outliers$treatment <- as.factor(m852_tot_females_outliers$treatment)
+m852_tot_males_outliers$treatment <- as.factor(m852_tot_males_outliers$treatment)
+```
+#analysis with Type III ANOVA
+```{r}
+m301_aov_females <- aov(total_act ~ treatment, data = m301_tot_females_outliers)
+Anova(m301_aov_females, type = 3)
+
+m301_aov_males <- aov(total_act ~ treatment, data = m301_tot_males_outliers)
+Anova(m301_aov_males, type = 3)
+
+m304_aov_females <- aov(total_act ~ treatment, data = m304_tot_females_outliers)
+Anova(m304_aov_females, type = 3)
+
+m304_aov_males <- aov(total_act ~ treatment, data = m304_tot_males_outliers)
+Anova(m304_aov_males, type = 3)
+
+m786_aov_females <- aov(total_act ~ treatment, data = m786_tot_females_outliers)
+Anova(m786_aov_females, type = 3)
+
+m786_aov_males <- aov(total_act ~ treatment, data = m786_tot_males_outliers)
+Anova(m786_aov_males, type = 3)
+
+m852_aov_females <- aov(total_act ~ treatment, data = m852_tot_females_outliers)
+Anova(m852_aov_females, type = 3)
+
+m852_aov_males <- aov(total_act ~ treatment, data = m852_tot_males_outliers)
+Anova(m852_aov_males, type = 3)
+```
+#adjust ANOVAs for multiple testing
+```{r}
+p <- c(0.1976, 0.7287, 2.834e-05, 0.173624, 0.1413, 1.916e-05, 0.02941, 0.3412)
+p.adjust(p, method = "fdr", n = length(p))
+```
+Treatment effects: 304 females and 786 males
+
+# Q-Q plot of residuals
+Change the dataset as needed to check each one
+```{r}
+residuals <- resid(m301_aov_females)
+qqnorm(residuals)
+qqline(residuals, col = "red")
+```
+#check normality no residuals
+```{r}
+shapiro.test(residuals)
+```
+
+#Pairwise t-test with multiple corrections
+Based on the type 3 ANOVA results, 304 females, 786 males, 852 females showed significant treatment effect on total activity at this morning timepoint. So, we will now run the t-test on these groups.
+```{r}
+m304_tot_females_pairwise <- pairwise.t.test(m304_tot_females_outliers$total_act, m304_tot_females_outliers$treatment, p.adjust.method = "bonferroni")
+print(m304_tot_females_pairwise)
+
+m786_tot_males_pairwise <- pairwise.t.test(m786_tot_males_outliers$total_act, m786_tot_males_outliers$treatment, p.adjust.method = "bonferroni")
+print(m786_tot_males_pairwise)
+```
+Conclusion:
+304 females showed 5d-20d and c-20d significance
+786 males showed 5d-20d, c-20d, and c-5d significance
+
+---
+
+
+
+
+
+
+Afternoon, 12-2PM and 1PM is a typical time of inactivity which is why we chose this timepoint
+#aggregate the data by region_id to analyze the total activity
+```{r}
+totalactivity_afternoon <- afternoon_t1 %>% 
+  group_by(genotype, sex, treatment, region_id) %>% 
+  summarise(
+    mean_act = mean(nd, na.rm = TRUE),
+    total_act = sum(nd, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+```
+#Shapiro-wilks normality test
+```{r}
+totalactivity_afternoon %>%
+  group_by(genotype, sex, treatment) %>%
+  shapiro_test(total_act) %>%
+  subset(p < 0.05)
+```
+16 groups are not normal
+
+# Kruskal test (non-parametric tests for main effects)
+```{r}
+  kruskal.test(total_act ~ sex, data = totalactivity_afternoon)
+  kruskal.test(total_act ~ genotype, data = totalactivity_afternoon)
+  kruskal.test(total_act ~ treatment, data = totalactivity_afternoon)
+```
+
+#outlier and extreme outlier detection
+```{r}
+totalactivity_afternoon %>%
+  group_by(treatment, genotype, sex) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,  # Regular lower bound for outliers
+    upper_bound = Q3 + 1.5 * IQR,  # Regular upper bound for outliers
+    extreme_lower_bound = Q1 - 3 * IQR,  # Extreme lower bound for extreme outliers
+    extreme_upper_bound = Q3 + 3 * IQR,  # Extreme upper bound for extreme outliers
+    outlier_flag = total_act < lower_bound | total_act > upper_bound,
+    extreme_outlier_flag = total_act < extreme_lower_bound | total_act > extreme_upper_bound
+  ) %>%
+  ungroup() %>%
+  summarize(
+    outlier_count = sum(outlier_flag),
+    extreme_outlier_count = sum(extreme_outlier_flag)
+  )
+```
+We have 18 outliers
+
+#remove all outliers from totalactivity_afternoon
+```{r}
+totalactivity_afternoon_outliers <- totalactivity_afternoon %>%
+  group_by(treatment, genotype, sex) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,
+    upper_bound = Q3 + 1.5 * IQR,
+    outlier_flag = total_act < lower_bound | total_act > upper_bound
+  ) %>%
+  ungroup() %>%
+  filter(outlier_flag == FALSE) %>%
+  select(-Q1, -Q3, -IQR, -lower_bound, -upper_bound)
+```
+
+#Normality test on totalactivity_afternoon_outliers, which is data with all outliers removed
+```{r}
+totalactivity_afternoon_outliers %>%
+  group_by(treatment, sex, genotype) %>%
+  shapiro_test(total_act) %>%
+  subset(p < 0.05)
+```
+Now we only have 7 not normal groups
+
+#convert genotype, sex, and treatment variables to factors
+```{r}
+totalactivity_afternoon$genotype <- as.factor(totalactivity_afternoon$genotype)
+totalactivity_afternoon$sex <- as.factor(totalactivity_afternoon$sex)
+totalactivity_afternoon$treatment <- as.factor(totalactivity_afternoon$treatment)
+
+totalactivity_afternoon_outliers$genotype <- as.factor(totalactivity_afternoon_outliers$genotype)
+totalactivity_afternoon_outliers$sex <- as.factor(totalactivity_afternoon_outliers$sex)
+totalactivity_afternoon_outliers$treatment <- as.factor(totalactivity_afternoon_outliers$treatment)
+```
+
+#Mixed-effects model analysis with Type III ANOVA for totalactivity_afternoon_outliers
+```{r}
+totalactivity_afternoon_outliers_aov <- aov(total_act ~ sex * genotype * treatment, data = totalactivity_afternoon_outliers)
+Anova(totalactivity_afternoon_outliers_aov, type = 3)
+```
+#rerun with nonsignificant interactions removed
+```{r}
+totalactivity_afternoon_outliers_rerun <- lm(total_act ~ sex + genotype + treatment + sex:genotype + sex:genotype:treatment, data = totalactivity_afternoon_outliers)
+anova_results <- anova(totalactivity_afternoon_outliers_rerun)
+print(anova_results)
+```
+Sex, genotype, sex:genotype, and sex:genotype:treatment are significant
+
+#subset by genotype
+```{r}
+a301_tot <- subset(totalactivity_afternoon, genotype == "301")
+a304_tot <- subset(totalactivity_afternoon, genotype == "304")
+a786_tot <- subset(totalactivity_afternoon, genotype == "786")
+a852_tot <- subset(totalactivity_afternoon, genotype == "852")
+```
+#subset again by sex
+```{r}
+a301_tot_females <- a301_tot %>% filter(sex == "F")
+a301_tot_males <- a301_tot %>% filter(sex == "M")
+
+a304_tot_females <- a304_tot %>% filter(sex == "F")
+a304_tot_males <- a304_tot %>% filter(sex == "M")
+
+a786_tot_females <- a786_tot %>% filter(sex == "F")
+a786_tot_males <- a786_tot %>% filter(sex == "M")
+
+a852_tot_females <- a852_tot %>% filter(sex == "F")
+a852_tot_males <- a852_tot %>% filter(sex == "M")
+```
+#shapiro-wilks normality test
+Change the dataset as needed to check each one
+```{r}
+a301_tot_females %>%
+  group_by(treatment) %>%
+  shapiro_test(total_act) %>%
+  subset(p < 0.05)
+```
+All of these have non-normal groups but only about 1-3 aren't normal so that's not too bad
+
+#Kruskal test for main effects
+```{r}
+  kruskal.test(total_act ~ treatment, data = a301_tot_females)
+  kruskal.test(total_act ~ treatment, data = a301_tot_males)
+  kruskal.test(total_act ~ treatment, data = a304_tot_females)
+  kruskal.test(total_act ~ treatment, data = a304_tot_males)
+  kruskal.test(total_act ~ treatment, data = a786_tot_females)
+  kruskal.test(total_act ~ treatment, data = a786_tot_males)
+  kruskal.test(total_act ~ treatment, data = a852_tot_females)
+  kruskal.test(total_act ~ treatment, data = a852_tot_males)
+```
+#adjust KWs for multiple testing
+```{r}
+p <- c(0.2651, 0.8206, 0.05732, 0.4159, 0.3375, 0.02323, 0.03184, 0.03798)
+p.adjust(p, method = "fdr", n = length(p))
+```
+None significant
+
+#remove outliers from all groups
+```{r}
+a301_tot_females_outliers <- a301_tot_females %>%
+  group_by(treatment) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,
+    upper_bound = Q3 + 1.5 * IQR,
+    outlier_flag = total_act < lower_bound | total_act > upper_bound
+  ) %>%
+  ungroup() %>%
+  filter(outlier_flag == FALSE) %>%
+  select(-Q1, -Q3, -IQR, -lower_bound, -upper_bound)
+
+a301_tot_males_outliers <- a301_tot_males %>%
+  group_by(treatment) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,
+    upper_bound = Q3 + 1.5 * IQR,
+    outlier_flag = total_act < lower_bound | total_act > upper_bound
+  ) %>%
+  ungroup() %>%
+  filter(outlier_flag == FALSE) %>%
+  select(-Q1, -Q3, -IQR, -lower_bound, -upper_bound)
+
+a304_tot_females_outliers <- a304_tot_females %>%
+  group_by(treatment) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,
+    upper_bound = Q3 + 1.5 * IQR,
+    outlier_flag = total_act < lower_bound | total_act > upper_bound
+  ) %>%
+  ungroup() %>%
+  filter(outlier_flag == FALSE) %>%
+  select(-Q1, -Q3, -IQR, -lower_bound, -upper_bound)
+
+a304_tot_males_outliers <- a304_tot_males %>%
+  group_by(treatment) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,
+    upper_bound = Q3 + 1.5 * IQR,
+    outlier_flag = total_act < lower_bound | total_act > upper_bound
+  ) %>%
+  ungroup() %>%
+  filter(outlier_flag == FALSE) %>%
+  select(-Q1, -Q3, -IQR, -lower_bound, -upper_bound)
+
+a786_tot_females_outliers <- a786_tot_females %>%
+  group_by(treatment) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,
+    upper_bound = Q3 + 1.5 * IQR,
+    outlier_flag = total_act < lower_bound | total_act > upper_bound
+  ) %>%
+  ungroup() %>%
+  filter(outlier_flag == FALSE) %>%
+  select(-Q1, -Q3, -IQR, -lower_bound, -upper_bound)
+
+a786_tot_males_outliers <- a786_tot_males %>%
+  group_by(treatment) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,
+    upper_bound = Q3 + 1.5 * IQR,
+    outlier_flag = total_act < lower_bound | total_act > upper_bound
+  ) %>%
+  ungroup() %>%
+  filter(outlier_flag == FALSE) %>%
+  select(-Q1, -Q3, -IQR, -lower_bound, -upper_bound)
+
+a852_tot_females_outliers <- a852_tot_females %>%
+  group_by(treatment) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,
+    upper_bound = Q3 + 1.5 * IQR,
+    outlier_flag = total_act < lower_bound | total_act > upper_bound
+  ) %>%
+  ungroup() %>%
+  filter(outlier_flag == FALSE) %>%
+  select(-Q1, -Q3, -IQR, -lower_bound, -upper_bound)
+
+a852_tot_males_outliers <- a852_tot_males %>%
+  group_by(treatment) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,
+    upper_bound = Q3 + 1.5 * IQR,
+    outlier_flag = total_act < lower_bound | total_act > upper_bound
+  ) %>%
+  ungroup() %>%
+  filter(outlier_flag == FALSE) %>%
+  select(-Q1, -Q3, -IQR, -lower_bound, -upper_bound)
+```
+
+#normality test again
+change dataset as needed to check
+```{r}
+a786_tot_males_outliers %>%
+  group_by(treatment) %>%
+  shapiro_test(total_act) %>%
+  subset(p < 0.05)
+```
+Mostly normal, a few groups are not
+
+#convert treatment variable to a factor
+```{r}
+a301_tot_females_outliers$treatment <- as.factor(a301_tot_females_outliers$treatment)
+a301_tot_males_outliers$treatment <- as.factor(a301_tot_males_outliers$treatment)
+a304_tot_females_outliers$treatment <- as.factor(a304_tot_females_outliers$treatment)
+a304_tot_males_outliers$treatment <- as.factor(a304_tot_males_outliers$treatment)
+a786_tot_females_outliers$treatment <- as.factor(a786_tot_females_outliers$treatment)
+a786_tot_males_outliers$treatment <- as.factor(a786_tot_males_outliers$treatment)
+a852_tot_females_outliers$treatment <- as.factor(a852_tot_females_outliers$treatment)
+a852_tot_males_outliers$treatment <- as.factor(a852_tot_males_outliers$treatment)
+```
+#Analysis with Type III ANOVA
+```{r}
+a301_aov_females <- aov(total_act ~ treatment, data = a301_tot_females_outliers)
+Anova(a301_aov_females, type = 3)
+
+a301_aov_males <- aov(total_act ~ treatment, data = a301_tot_males_outliers)
+Anova(a301_aov_males, type = 3)
+
+a304_aov_females <- aov(total_act ~ treatment, data = a304_tot_females_outliers)
+Anova(a304_aov_females, type = 3)
+
+a304_aov_males <- aov(total_act ~ treatment, data = a304_tot_males_outliers)
+Anova(a304_aov_males, type = 3)
+
+a786_aov_females <- aov(total_act ~ treatment, data = a786_tot_females_outliers)
+Anova(a786_aov_females, type = 3)
+
+a786_aov_males <- aov(total_act ~ treatment, data = a786_tot_males_outliers)
+Anova(a786_aov_males, type = 3)
+
+a852_aov_females <- aov(total_act ~ treatment, data = a852_tot_females_outliers)
+Anova(a852_aov_females, type = 3)
+
+a852_aov_males <- aov(total_act ~ treatment, data = a852_tot_males_outliers)
+Anova(a852_aov_males, type = 3)
+```
+#adjust ANOVAs for multiple testing
+```{r}
+p <- c(0.4237, 0.9692, 0.009376, 0.04791, 0.02117, 0.002201, 0.002323, 0.06297)
+p.adjust(p, method = "fdr", n = length(p))
+```
+The ANOVA finds that 304 female, 786 female and male, and 852 female show significant treatment effects on total activity
+
+#QQ plot for residuals
+Change dataset as needed to test
+```{r}
+afternoon_residuals <- resid(a301_aov_females)
+qqnorm(afternoon_residuals)
+qqline(afternoon_residuals, col = "red")
+```
+#check normality on residuals
+```{r}
+shapiro.test(afternoon_residuals)
+```
+Data is normal
+
+#Pairwise t-test with multiple corrections
+Based on the type 3 ANOVA results, 304 female and male, 786 female and male, and 852 females showed significant treatment effect on total activity at this afternoon timepoint. So, we will now run the t-test on these groups.
+```{r}
+a304_tot_females_pairwise <- pairwise.t.test(a304_tot_females_outliers$total_act, a304_tot_females_outliers$treatment, p.adjust.method = "bonferroni")
+print(a304_tot_females_pairwise)
+
+a786_tot_females_pairwise <- pairwise.t.test(a786_tot_females_outliers$total_act, a786_tot_females_outliers$treatment, p.adjust.method = "bonferroni")
+print(a786_tot_females_pairwise)
+
+a786_tot_males_pairwise <- pairwise.t.test(a786_tot_males_outliers$total_act, a786_tot_males_outliers$treatment, p.adjust.method = "bonferroni")
+print(a786_tot_males_pairwise)
+
+a852_tot_females_pairwise <- pairwise.t.test(a852_tot_females_outliers$total_act, a852_tot_females_outliers$treatment, p.adjust.method = "bonferroni")
+print(a852_tot_females_pairwise)
+```
+Conclusions:
+304 females 5d-20d significant
+786 females c-20d significant
+786 males c-20d and 5d-20d significant
+852 females c-20d and c-5d significant
+
+
+---
+
+
+
+
+
+Evening, 6-8PM with 7PM being lights off
+#aggregate the data by region_id to analyze the total activity
+```{r}
+totalactivity_evening <- evening_t1 %>% 
+  group_by(genotype, sex, treatment, region_id) %>% 
+  summarise(
+    mean_act = mean(nd, na.rm = TRUE),
+    total_act = sum(nd, na.rm = TRUE),
+    .groups = "drop"
+  )
+```
+#Shapiro-wilks normality test
+```{r}
+totalactivity_evening %>%
+  group_by(genotype, sex, treatment) %>%
+  shapiro_test(total_act) %>%
+  subset(p < 0.05)
+```
+14 groups are not normal
+
+# Kruskal test (non-parametric tests for main effects)
+```{r}
+  kruskal.test(total_act ~ sex, data = totalactivity_evening)
+  kruskal.test(total_act ~ genotype, data = totalactivity_evening)
+  kruskal.test(total_act ~ treatment, data = totalactivity_evening)
+```
+
+#outlier and extreme outlier detection
+```{r}
+totalactivity_evening %>%
+  group_by(treatment, genotype, sex) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,  # Regular lower bound for outliers
+    upper_bound = Q3 + 1.5 * IQR,  # Regular upper bound for outliers
+    extreme_lower_bound = Q1 - 3 * IQR,  # Extreme lower bound for extreme outliers
+    extreme_upper_bound = Q3 + 3 * IQR,  # Extreme upper bound for extreme outliers
+    outlier_flag = total_act < lower_bound | total_act > upper_bound,
+    extreme_outlier_flag = total_act < extreme_lower_bound | total_act > extreme_upper_bound
+  ) %>%
+  ungroup() %>%
+  summarize(
+    outlier_count = sum(outlier_flag),
+    extreme_outlier_count = sum(extreme_outlier_flag)
+  )
+```
+24 outliers to remove
+
+#Remove all outliers from totalactivity_evening
+```{r}
+totalactivity_evening_outliers <- totalactivity_evening %>%
+  group_by(treatment, genotype, sex) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,
+    upper_bound = Q3 + 1.5 * IQR,
+    outlier_flag = total_act < lower_bound | total_act > upper_bound
+  ) %>%
+  ungroup() %>%
+  filter(outlier_flag == FALSE) %>%
+  select(-Q1, -Q3, -IQR, -lower_bound, -upper_bound)
+```
+#Normality test on totalactivity_evening_outliers, which is data with all outliers removed
+```{r}
+totalactivity_evening_outliers %>%
+  group_by(treatment, sex, genotype) %>%
+  shapiro_test(total_act) %>%
+  subset(p < 0.05)
+```
+6 groups are not normal, better than 14
+
+#convert genotype, sex, and treatment variables to factors
+```{r}
+totalactivity_evening$genotype <- as.factor(totalactivity_evening$genotype)
+totalactivity_evening$sex <- as.factor(totalactivity_evening$sex)
+totalactivity_evening$treatment <- as.factor(totalactivity_evening$treatment)
+
+totalactivity_evening_outliers$genotype <- as.factor(totalactivity_evening_outliers$genotype)
+totalactivity_evening_outliers$sex <- as.factor(totalactivity_evening_outliers$sex)
+totalactivity_evening_outliers$treatment <- as.factor(totalactivity_evening_outliers$treatment)
+```
+
+#Mixed-effects model analysis with Type III ANOVA for totalactivity_evening_outliers
+```{r}
+totalactivity_evening_outliers_aov <- aov(total_act ~ sex * genotype * treatment, data = totalactivity_evening_outliers)
+Anova(totalactivity_evening_outliers_aov, type = 3)
+```
+#rerun with nonsignificant interactions removed
+```{r}
+totalactivity_evening_outliers_rerun <- lm(total_act ~ sex + genotype + treatment + sex:genotype + sex:genotype:treatment, data = totalactivity_evening_outliers)
+anova_results <- anova(totalactivity_evening_outliers_rerun)
+print(anova_results)
+```
+sex, genotype, treatment, sex:genotype, and sex:genotype treatment are all significant
+
+
+It's time to look deeper for treatment effects
+#subset by genotype
+```{r}
+e301_tot <- subset(totalactivity_evening, genotype == "301")
+e304_tot <- subset(totalactivity_evening, genotype == "304")
+e786_tot <- subset(totalactivity_evening, genotype == "786")
+e852_tot <- subset(totalactivity_evening, genotype == "852")
+```
+#subset again by sex
+```{r}
+e301_tot_females <- e301_tot %>% filter(sex == "F")
+e301_tot_males <- e301_tot %>% filter(sex == "M")
+
+e304_tot_females <- e304_tot %>% filter(sex == "F")
+e304_tot_males <- e304_tot %>% filter(sex == "M")
+
+e786_tot_females <- e786_tot %>% filter(sex == "F")
+e786_tot_males <- e786_tot %>% filter(sex == "M")
+
+e852_tot_females <- e852_tot %>% filter(sex == "F")
+e852_tot_males <- e852_tot %>% filter(sex == "M")
+```
+
+#shapiro-wilks test for normality
+Change dataset as needed to check each one
+```{r}
+e852_tot_males %>%
+  group_by(treatment) %>%
+  shapiro_test(total_act) %>%
+  subset(p < 0.05)
+```
+301 females, 304 females and males, 786 females and males, and 852 females and males have not normal groups although only 1-2
+
+#kruskal-wallis test for main treatment effects
+```{r}
+  kruskal.test(total_act ~ treatment, data = e301_tot_females)
+  kruskal.test(total_act ~ treatment, data = e301_tot_males)
+  kruskal.test(total_act ~ treatment, data = e304_tot_females)
+  kruskal.test(total_act ~ treatment, data = e304_tot_males)
+  kruskal.test(total_act ~ treatment, data = e786_tot_females)
+  kruskal.test(total_act ~ treatment, data = e786_tot_males)
+  kruskal.test(total_act ~ treatment, data = e852_tot_females)
+  kruskal.test(total_act ~ treatment, data = e852_tot_males)
+```
+#adjust KWs for multiple testing
+```{r}
+p <- c(0.008888, 0.6588, 0.09367, 0.2236, 0.5405, 0.0003303, 0.09635, 0.07137)
+p.adjust(p, method = "fdr", n = length(p))
+```
+301 females, 786 males significant
+
+#remove outliers from all groups
+```{r}
+e301_tot_females_outliers <- e301_tot_females %>%
+  group_by(treatment) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,
+    upper_bound = Q3 + 1.5 * IQR,
+    outlier_flag = total_act < lower_bound | total_act > upper_bound
+  ) %>%
+  ungroup() %>%
+  filter(outlier_flag == FALSE) %>%
+  select(-Q1, -Q3, -IQR, -lower_bound, -upper_bound)
+
+e301_tot_males_outliers <- e301_tot_males %>%
+  group_by(treatment) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,
+    upper_bound = Q3 + 1.5 * IQR,
+    outlier_flag = total_act < lower_bound | total_act > upper_bound
+  ) %>%
+  ungroup() %>%
+  filter(outlier_flag == FALSE) %>%
+  select(-Q1, -Q3, -IQR, -lower_bound, -upper_bound)
+
+e304_tot_females_outliers <- e304_tot_females %>%
+  group_by(treatment) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,
+    upper_bound = Q3 + 1.5 * IQR,
+    outlier_flag = total_act < lower_bound | total_act > upper_bound
+  ) %>%
+  ungroup() %>%
+  filter(outlier_flag == FALSE) %>%
+  select(-Q1, -Q3, -IQR, -lower_bound, -upper_bound)
+
+e304_tot_males_outliers <- e304_tot_males %>%
+  group_by(treatment) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,
+    upper_bound = Q3 + 1.5 * IQR,
+    outlier_flag = total_act < lower_bound | total_act > upper_bound
+  ) %>%
+  ungroup() %>%
+  filter(outlier_flag == FALSE) %>%
+  select(-Q1, -Q3, -IQR, -lower_bound, -upper_bound)
+
+e786_tot_females_outliers <- e786_tot_females %>%
+  group_by(treatment) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,
+    upper_bound = Q3 + 1.5 * IQR,
+    outlier_flag = total_act < lower_bound | total_act > upper_bound
+  ) %>%
+  ungroup() %>%
+  filter(outlier_flag == FALSE) %>%
+  select(-Q1, -Q3, -IQR, -lower_bound, -upper_bound)
+
+e786_tot_males_outliers <- e786_tot_males %>%
+  group_by(treatment) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,
+    upper_bound = Q3 + 1.5 * IQR,
+    outlier_flag = total_act < lower_bound | total_act > upper_bound
+  ) %>%
+  ungroup() %>%
+  filter(outlier_flag == FALSE) %>%
+  select(-Q1, -Q3, -IQR, -lower_bound, -upper_bound)
+
+e852_tot_females_outliers <- e852_tot_females %>%
+  group_by(treatment) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,
+    upper_bound = Q3 + 1.5 * IQR,
+    outlier_flag = total_act < lower_bound | total_act > upper_bound
+  ) %>%
+  ungroup() %>%
+  filter(outlier_flag == FALSE) %>%
+  select(-Q1, -Q3, -IQR, -lower_bound, -upper_bound)
+
+e852_tot_males_outliers <- e852_tot_males %>%
+  group_by(treatment) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,
+    upper_bound = Q3 + 1.5 * IQR,
+    outlier_flag = total_act < lower_bound | total_act > upper_bound
+  ) %>%
+  ungroup() %>%
+  filter(outlier_flag == FALSE) %>%
+  select(-Q1, -Q3, -IQR, -lower_bound, -upper_bound)
+```
+
+#convert treatment variable to a factor
+```{r}
+e301_tot_females_outliers$treatment <- as.factor(e301_tot_females_outliers$treatment)
+e301_tot_males_outliers$treatment <- as.factor(e301_tot_males_outliers$treatment)
+e304_tot_females_outliers$treatment <- as.factor(e304_tot_females_outliers$treatment)
+e304_tot_males_outliers$treatment <- as.factor(e304_tot_males_outliers$treatment)
+e786_tot_females_outliers$treatment <- as.factor(e786_tot_females_outliers$treatment)
+e786_tot_males_outliers$treatment <- as.factor(e786_tot_males_outliers$treatment)
+e852_tot_females_outliers$treatment <- as.factor(e852_tot_females_outliers$treatment)
+e852_tot_males_outliers$treatment <- as.factor(e852_tot_males_outliers$treatment)
+```
+
+#Analysis with Type III ANOVA
+```{r}
+e301_aov_females <- aov(total_act ~ treatment, data = e301_tot_females_outliers)
+Anova(e301_aov_females, type = 3)
+
+e301_aov_males <- aov(total_act ~ treatment, data = e301_tot_males_outliers)
+Anova(e301_aov_males, type = 3)
+
+e304_aov_females <- aov(total_act ~ treatment, data = e304_tot_females_outliers)
+Anova(e304_aov_females, type = 3)
+
+e304_aov_males <- aov(total_act ~ treatment, data = e304_tot_males_outliers)
+Anova(e304_aov_males, type = 3)
+
+e786_aov_females <- aov(total_act ~ treatment, data = e786_tot_females_outliers)
+Anova(e786_aov_females, type = 3)
+
+e786_aov_males <- aov(total_act ~ treatment, data = e786_tot_males_outliers)
+Anova(e786_aov_males, type = 3)
+
+e852_aov_females <- aov(total_act ~ treatment, data = e852_tot_females_outliers)
+Anova(e852_aov_females, type = 3)
+
+e852_aov_males <- aov(total_act ~ treatment, data = e852_tot_males_outliers)
+Anova(e852_aov_males, type = 3)
+```
+#adjust ANOVAs for multiple testing
+```{r}
+p <- c(0.02912, 0.6457, 0.01043, 0.00818, 0.1039, 0.002735, 0.1607, 0.01383)
+p.adjust(p, method = "fdr", n = length(p))
+```
+301 female, 304 female and male, 786 male, and 852 male have significant treatment effects.
+
+#QQ plot for residuals
+Change dataset as needed to test
+```{r}
+evening_residuals <- resid(e301_aov_females)
+qqnorm(evening_residuals)
+qqline(evening_residuals, col = "red")
+```
+#check normality on residuals
+```{r}
+shapiro.test(evening_residuals)
+```
+Data not normal
+
+#Pairwise t-test with multiple corrections
+Based on the type 3 ANOVA results, 301 female, 304 female and male, 786 male, and 852 males showed significant treatment effect on total activity at this afternoon timepoint. So, we will now run the t-test on these groups.
+```{r}
+e301_tot_females_pairwise <- pairwise.t.test(e301_tot_females_outliers$total_act, e301_tot_females_outliers$treatment, p.adjust.method = "bonferroni")
+print(e301_tot_females_pairwise)
+
+e304_tot_females_pairwise <- pairwise.t.test(e304_tot_females_outliers$total_act, e304_tot_females_outliers$treatment, p.adjust.method = "bonferroni")
+print(e304_tot_females_pairwise)
+
+e304_tot_males_pairwise <- pairwise.t.test(e304_tot_males_outliers$total_act, e304_tot_males_outliers$treatment, p.adjust.method = "bonferroni")
+print(e304_tot_males_pairwise)
+
+e786_tot_males_pairwise <- pairwise.t.test(e786_tot_males_outliers$total_act, e786_tot_males_outliers$treatment, p.adjust.method = "bonferroni")
+print(e786_tot_males_pairwise)
+
+e852_tot_males_pairwise <- pairwise.t.test(e852_tot_males_outliers$total_act, e852_tot_males_outliers$treatment, p.adjust.method = "bonferroni")
+print(e852_tot_males_pairwise)
+```
+Conclusions
+301 females 5d-c significant
+304 females 5d-20d
+304 males 5d-c significant
+786 males 5d-20d significant
+852 males c-20d significant
+---
+
+
+
+
+
+
+Extra tests to obtain values to use in the text of the manuscript
+#average the data for each sex and genotype combination at morning timepoint
+```{r}
+activitymorning_summary_avg <- totalactivity_morning %>%
+  group_by(sex, genotype, treatment) %>%
+  summarise(
+    avg_mean_act = mean(mean_act, na.rm = TRUE),
+    avg_total_act = mean(total_act, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+activitymorning_summary_avg
+```
+#average the data for each sex and genotype combination at afternoon timepoint
+```{r}
+activityafternoon_summary_avg <- totalactivity_afternoon %>%
+  group_by(sex, genotype, treatment) %>%
+  summarise(
+    avg_mean_act = mean(mean_act, na.rm = TRUE),
+    avg_total_act = mean(total_act, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+activityafternoon_summary_avg
+```
+#average the data for each sex and genotype combination at evening timepoint
+```{r}
+activityevening_summary_avg <- totalactivity_evening %>%
+  group_by(sex, genotype, treatment) %>%
+  summarise(
+    avg_mean_act = mean(mean_act, na.rm = TRUE),
+    avg_total_act = mean(total_act, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+activityevening_summary_avg
+```
+
+#checking trend in DGRP304 20-day females
+```{r}
+dt_304 <- subset(dt, genotype == "304")
+dt_304_F <- subset(dt_304, sex == "F")
+dt_304_M <- subset(dt_304, sex == "M")
+```
+#graph
+```{r}
+graph_304 <- ggetho(dt_304_F, aes(x = t, y = nd, colour = treatment)) + 
+  facet_grid(timepoint ~ genotype) + 
+  labs(y = "Activity per fly", x = "Time (h)") + 
+  theme_bw() +
+  scale_color_manual(values = c("#0073C2FF", "#EFC000FF", "#BEBEBE"), name = "Treatment") +
+  scale_fill_manual(values = c("#0073C2FF", "#EFC000FF", "#BEBEBE"), name = "Treatment") +
+  theme(strip.background = element_rect(fill = "white")) + 
+  theme(strip.text = element_text(colour = "black")) +
+  stat_pop_etho() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = "none")
+
+graph_304
+```
+Increasing activity in the 20-day females only occurs on day 26 and 37 but goes away by day 51 
+

@@ -1333,7 +1333,8 @@ master_t3 <- rbind(master_t3_304, master_t3_786, master_t3_301)
 ```{r}
 ultimate_master <- rbind(master_t0, master_t1, master_t2, master_t3)
 ```
-#ultimate master boxplot for supplementary figure 1 with y-axis scaled to be the same for each genotype
+#ultimate master boxplot for supplementary figure 1 version 1
+This version compares activity across genotype
 ```{r}
 boxplot_um <- ggplot(data = ultimate_master, aes(x = sex, y = daily_activity)) +
   geom_boxplot(aes(fill = "white", color = treatment), outlier.shape = NA, size = 0.75) +
@@ -1354,6 +1355,28 @@ boxplot_um <- ggplot(data = ultimate_master, aes(x = sex, y = daily_activity)) +
 
 boxplot_um
 ```
+#ultimate master boxplot for supplementary figure 1 version 2
+This compares activity across age for each genotype
+```{r}
+boxplot_up <- ggplot(data = ultimate_master, aes(x = sex, y = daily_activity)) +
+  geom_boxplot(aes(fill = "white", color = treatment), outlier.shape = NA, size = 0.75) +
+  geom_jitter(aes(x = sex, y = daily_activity, color = treatment), 
+              alpha = 0.6, 
+              position = position_jitterdodge(jitter.width = 0.2, jitter.height = 0), 
+              size = 1) + 
+  facet_grid(genotype ~ age) +
+  scale_fill_manual(values = "white") + 
+  scale_color_manual(values = c("#0073C2FF", "#EFC000FF", "#BEBEBE"),
+                     labels = c("20-day", "5-day", "Control")) +
+  labs(x = "Sex", y = "Activity per fly", fill = "Treatment", color = "Treatment") +
+  theme_bw() +
+  theme(strip.background = element_rect(fill = "white"), 
+        strip.text = element_text(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+
+boxplot_up
+```
 
 
 
@@ -1369,7 +1392,7 @@ kruskal.test(daily_activity ~ genotype, data = ultimate_master)
 kruskal.test(daily_activity ~ age, data = ultimate_master)
 kruskal.test(daily_activity ~ treatment, data = ultimate_master)
 ```
-Sex, genotype, age, and treatment are significant, p<0.05
+Sex, genotype, and age are significant
 
 #shapiro-wilk normality test on ultimate_master
 ```{r}
@@ -2380,120 +2403,6 @@ Data is not normal
 
 Conclusion: Kruskal-wallis significant treatment effect but then appears to be lost in the ANOVA.
 
-#ultimate master boxplot for supplementary figure 1 with y-axis scaled to be the same for each genotype
-```{r}
-boxplot_um <- ggplot(data = ultimate_master, aes(x = sex, y = daily_activity)) +
-  geom_boxplot(aes(fill = "white", color = treatment), outlier.shape = NA, size = 0.75) +
-  geom_jitter(aes(x = sex, y = daily_activity, color = treatment), 
-              alpha = 0.6, 
-              position = position_jitterdodge(jitter.width = 0.2, jitter.height = 0), 
-              size = 1) + 
-  facet_grid(age ~ genotype) +
-  scale_fill_manual(values = "white") + 
-  scale_color_manual(values = c("#0073C2FF", "#EFC000FF", "#BEBEBE"),
-                     labels = c("20-day", "5-day", "Control")) +
-  labs(x = "Sex", y = "Activity per fly", fill = "Treatment", color = "Treatment") +
-  theme_bw() +
-  theme(strip.background = element_rect(fill = "white"), 
-        strip.text = element_text(colour = "black"),
-        panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank())
-
-boxplot_um
-```
-
-#ultimate master boxplot for supplementary figure 1, second version without y-axis scaled for each genotype
-301
-```{r}
-boxplot_301 <- ggplot(data = master_301_outliers, aes(x = sex, y = daily_activity)) +
-  geom_boxplot(aes(fill = "white", color = treatment), outlier.shape = NA, size = 0.75) +
-  geom_jitter(aes(x = sex, y = daily_activity, color = treatment), 
-              alpha = 0.6, 
-              position = position_jitterdodge(jitter.width = 0.2, jitter.height = 0), 
-              size = 1) + 
-  facet_grid(~genotype~age) +
-  scale_fill_manual(values = "white") + 
-  scale_color_manual(values = c("#0073C2FF", "#EFC000FF", "#BEBEBE"),
-                     labels = c("20-day", "5-day", "Control")) +
-  labs(x = "Sex", y = "Activity per fly", fill = "Treatment", color = "Treatment") +
-  theme_bw() +
-  theme(strip.background = element_rect(fill = "white"), 
-        strip.text = element_text(colour = "black"),
-        panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank()) 
-
-boxplot_301
-```
-304
-```{r}
-boxplot_304 <- ggplot(data = master_304_outliers, aes(x = sex, y = daily_activity)) +
-  geom_boxplot(aes(fill = "white", color = treatment), outlier.shape = NA, size = 0.75) +
-  geom_jitter(aes(x = sex, y = daily_activity, color = treatment), 
-              alpha = 0.6, 
-              position = position_jitterdodge(jitter.width = 0.2, jitter.height = 0), 
-              size = 1) + 
-  facet_grid(~genotype~age) +
-  scale_fill_manual(values = "white") + 
-  scale_color_manual(values = c("#0073C2FF", "#EFC000FF", "#BEBEBE"),
-                     labels = c("20-day", "5-day", "Control")) +
-  labs(x = "Sex", y = "Activity per fly", fill = "Treatment", color = "Treatment") +
-  theme_bw() +
-  theme(strip.background = element_rect(fill = "white"), 
-        strip.text = element_text(colour = "black"),
-        panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank()) 
-
-boxplot_304
-```
-786
-```{r}
-boxplot_786 <- ggplot(data = master_786_outliers, aes(x = sex, y = daily_activity)) +
-  geom_boxplot(aes(fill = "white", color = treatment), outlier.shape = NA, size = 0.75) +
-  geom_jitter(aes(x = sex, y = daily_activity, color = treatment), 
-              alpha = 0.6, 
-              position = position_jitterdodge(jitter.width = 0.2, jitter.height = 0), 
-              size = 1) + 
-  facet_grid(~genotype~age) +
-  scale_fill_manual(values = "white") + 
-  scale_color_manual(values = c("#0073C2FF", "#EFC000FF", "#BEBEBE"),
-                     labels = c("20-day", "5-day", "Control")) +
-  labs(x = "Sex", y = "Activity per fly", fill = "Treatment", color = "Treatment") +
-  theme_bw() +
-  theme(strip.background = element_rect(fill = "white"), 
-        strip.text = element_text(colour = "black"),
-        panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank()) 
-
-boxplot_786
-```
-852
-```{r}
-boxplot_852 <- ggplot(data = master_852_outliers, aes(x = sex, y = daily_activity)) +
-  geom_boxplot(aes(fill = "white", color = treatment), outlier.shape = NA, size = 0.75) +
-  geom_jitter(aes(x = sex, y = daily_activity, color = treatment), 
-              alpha = 0.6, 
-              position = position_jitterdodge(jitter.width = 0.2, jitter.height = 0), 
-              size = 1) + 
-  facet_grid(~genotype~age) +
-  scale_fill_manual(values = "white") + 
-  scale_color_manual(values = c("#0073C2FF", "#EFC000FF", "#BEBEBE"),
-                     labels = c("20-day", "5-day", "Control")) +
-  labs(x = "Sex", y = "Activity per fly", fill = "Treatment", color = "Treatment") +
-  theme_bw() +
-  theme(strip.background = element_rect(fill = "white"), 
-        strip.text = element_text(colour = "black"),
-        panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank()) 
-
-boxplot_852
-```
-
-
-
-
-
-
-
 
 
 
@@ -2533,6 +2442,13 @@ kruskal.test(daily_activity ~ treatment, data = females852_t2)
 kruskal.test(daily_activity ~ treatment, data = males852_t2)
 ```
 No significant treatment effect
+
+#adjust KW for multiple testing
+```{r}
+p <- c(0.3153, 0.6275, 0.06497, 0.2434, 0.06652, 0.7456)
+p.adjust(p, method = "fdr", n = length(p))
+```
+None significant
 
 #shapiro-wilk normality test
 Change dataset as needed to test
@@ -2700,6 +2616,12 @@ males852_t2_outliers_aov <- aov(daily_activity ~ treatment, data = males852_t2_o
 Anova(males852_t2_outliers_aov, type = 3)
 
 ```
+#adjust Anovas for multiple testing
+```{r}
+p <- c(0.04505, 0.8299, 0.01542, 0.3291, 0.007007, 0.5435)
+p.adjust(p, method = "fdr", n = length(p))
+```
+Females 852 t1 and t2 significant
 
 We will now run a Q-Q plot and normality test for the best dataset
 # Q-Q plot of residuals
@@ -2715,27 +2637,15 @@ shapiro.test(QQ852_residuals)
 ```
 
 # Pairwise t-test with multiple corrections
-Performed on data with outliers removed
+Performed only on data with significant treatment effect for adjusted p-values
 ```{r}
-pairwise_females_t0 <- pairwise.t.test(females852_t0_outliers$daily_activity, females852_t0_outliers$treatment)
-print(pairwise_females_t0)
-
-pairwise_males_t0 <- pairwise.t.test(males852_t0_outliers$daily_activity, males852_t0_outliers$treatment)
-print(pairwise_males_t0)
-pairwise_females_t1 <- pairwise.t.test(females852_t1_outliers$daily_activity, females852_t1_outliers$treatment, p.adjust.method = "bonferroni")
-print(pairwise_females_t1)
-
 pairwise_males_t1 <- pairwise.t.test(males852_t1_outliers$daily_activity, males852_t1_outliers$treatment, p.adjust.method = "bonferroni")
 print(pairwise_males_t1)
 
 pairwise_females_t2 <- pairwise.t.test(females852_t2_outliers$daily_activity, females852_t2_outliers$treatment, p.adjust.method = "bonferroni")
 print(pairwise_females_t2)
-
-pairwise_males_t2 <- pairwise.t.test(males852_t2_outliers$daily_activity, males852_t2_outliers$treatment, p.adjust.method = "bonferroni")
-print(pairwise_males_t2)
 ```
-Females C-5d t0, C-5D t1, C-5D t2 all significant
-No significance among males
+Females 852 t2 c-5d
 
 
 
@@ -2765,7 +2675,13 @@ kruskal.test(daily_activity ~ treatment, data = males786_t2)
 kruskal.test(daily_activity ~ treatment, data = females786_t3)
 kruskal.test(daily_activity ~ treatment, data = males786_t3)
 ```
-Significant treatment effects t0, t1, t2 males
+
+#adjust KW for multiple testing
+```{r}
+p <- c(0.2345, 0.02425, 0.4006, 0.004454, 0.5873, 0.003509, 0.9094, 0.6557)
+p.adjust(p, method = "fdr", n = length(p))
+```
+males 786 t1 and t2
 
 # Shapiro-Wilk Normality Test for DGRP786
 Change dataset name as needed to test normality for all groups
@@ -2970,6 +2886,12 @@ Anova(females786_t2_outliers_aov, type = 3)
 males786_t3_outliers_aov <- aov(daily_activity ~ treatment, data = males786_t3_outliers)
 Anova(males786_t2_outliers_aov, type = 3)
 ```
+#adjust Anova for multiple testing
+```{r}
+p <- c(0.2518, 0.05168, 0.36530, 0.003063, 0.4307, 0.0006605, 0.4307, 0.0006605)
+p.adjust(p, method = "fdr", n = length(p))
+```
+Males 786 t1, t2, and t3 significant treatment effects
 
 # Q-Q plot of residuals for the best dataset
 Change dataset name to test as needed
@@ -2986,33 +2908,18 @@ shapiro.test(QQ786_residuals)
 # Pairwise t-test with multiple corrections
 Performed on data with outliers removed
 ```{r}
-pairwise_females_t0 <- pairwise.t.test(females786_t0_outliers$daily_activity, females786_t0_outliers$treatment)
-print(pairwise_females_t0)
-
-pairwise_males_t0 <- pairwise.t.test(males786_t0_outliers$daily_activity, males786_t0_outliers$treatment)
-print(pairwise_males_t0)
-
-pairwise_females_t1 <- pairwise.t.test(females786_t1_outliers$daily_activity, females786_t1_outliers$treatment, p.adjust.method = "bonferroni")
-print(pairwise_females_t1)
-
 pairwise_males_t1 <- pairwise.t.test(males786_t1_outliers$daily_activity, males786_t1_outliers$treatment, p.adjust.method = "bonferroni")
 print(pairwise_males_t1)
 
-pairwise_females_t2 <- pairwise.t.test(females786_t2_outliers$daily_activity, females786_t2_outliers$treatment, p.adjust.method = "bonferroni")
-print(pairwise_females_t2)
-
 pairwise_males_t2 <- pairwise.t.test(males786_t2_outliers$daily_activity, males786_t2_outliers$treatment, p.adjust.method = "bonferroni")
 print(pairwise_males_t2)
-
-pairwise_females_t3 <- pairwise.t.test(females786_t3_outliers$daily_activity, females786_t3_outliers$treatment, p.adjust.method = "bonferroni")
-print(pairwise_females_t3)
 
 pairwise_males_t3 <- pairwise.t.test(males786_t3_outliers$daily_activity, males786_t3_outliers$treatment, p.adjust.method = "bonferroni")
 print(pairwise_males_t3)
 ```
 Males 786 t1 5d-20d
-Males 786 t2 5d-20d, c-5d
-
+Males 786 t2 5d-20d, c-20d
+Males 786 t3 None
 
 
 **DGRP301**
@@ -3038,6 +2945,12 @@ kruskal.test(daily_activity ~ treatment, data = males301_t2)
 kruskal.test(daily_activity ~ treatment, data = females301_t3)
 kruskal.test(daily_activity ~ treatment, data = males301_t3)
 ```
+#adjust KW for multiple testing
+```{r}
+p <- c(0.04811, 0.1345, 0.11, 0.7742, 0.6448, 0.3044, 0.08977, 0.1602)
+p.adjust(p, method = "fdr", n = length(p))
+```
+None significant
 
 # Shapiro-Wilk Normality Test for DGRP301
 Change dataset as needed to check all groups
@@ -3215,7 +3128,12 @@ Anova(females301_t3_outliers_aov, type = 3)
 males301_t3_outliers_aov <- aov(daily_activity ~ treatment, data = males301_t3_outliers)
 Anova(males301_t3_outliers_aov, type = 3)
 ```
-Females t0 and Males t3 significant treatment effect
+#adjust Anova for multiple testing
+```{r}
+p <- c(0.01909, 0.4983, 0.1363, 0.7387, 0.9349, 0.3735, 0.07445, 0.03601)
+p.adjust(p, method = "fdr", n = length(p))
+```
+None significant
 
 # Q-Q plot of residuals
 Change the data name as needed to test
@@ -3230,26 +3148,7 @@ shapiro.test(QQ301_residuals)
 ```
 
 # Pairwise t-test with multiple corrections
-Performed on data with outliers removed
-```{r}
-pairwise_females_t0 <- pairwise.t.test(females301_t0_outliers$daily_activity, females301_t0_outliers$treatment)
-print(pairwise_females_t0)
-
-pairwise_males_t0 <- pairwise.t.test(males301_t0_outliers$daily_activity, males301_t0_outliers$treatment)
-print(pairwise_males_t0)
-
-pairwise_females_t1 <- pairwise.t.test(females301_t1_outliers$daily_activity, females301_t1_outliers$treatment, p.adjust.method = "bonferroni")
-print(pairwise_females_t1)
-
-pairwise_males_t1 <- pairwise.t.test(males301_t1$daily_activity, males301_t1$treatment, p.adjust.method = "bonferroni")
-print(pairwise_males_t1)
-
-pairwise_females_t2 <- pairwise.t.test(females301_t2_outliers$daily_activity, females301_t2_outliers$treatment, p.adjust.method = "bonferroni")
-print(pairwise_females_t2)
-
-pairwise_males_t2 <- pairwise.t.test(males301_t2$daily_activity, males301_t2$treatment, p.adjust.method = "bonferroni")
-print(pairwise_males_t2)
-```
+None of the ANOVAs were significant
 
 
 
@@ -3277,7 +3176,12 @@ kruskal.test(daily_activity ~ treatment, data = males304_t2)
 kruskal.test(daily_activity ~ treatment, data = females304_t3)
 kruskal.test(daily_activity ~ treatment, data = males304_t3)
 ```
-Males t0, females t2, males t3 and females t3 treatment significant
+#adjust KW for multiple testing
+```{r}
+p <- c(0.7122, 0.05163, 0.13, 0.1909, 0.0008254, 0.6792, 0.0276, 0.01424)
+p.adjust(p, method = "fdr", n = length(p))
+```
+Females 304 t2 significant
 
 # Shapiro-Wilk Normality Test for DGRP304
 Change dataset name as needed to check all groups
@@ -3482,8 +3386,12 @@ Anova(females304_t3_outliers_aov, type = 3)
 males304_t3_outliers_aov <- aov(daily_activity ~ treatment, data = males304_t3_outliers)
 Anova(males304_t3_outliers_aov, type = 3)
 ```
-Males t0, t3 significant
-Females t1, t2 t3 significant
+#adjust Anova for multiple testing
+```{r}
+p <- c(0.6395, 0.01004, 0.01233, 0.05538, 0.0001705, 0.2644, 0.002903, 0.0007212)
+p.adjust(p, method = "fdr", n = length(p))
+```
+Males 304 t0, Females 304 t1, Females 304 t2, Females 304 t3, Males 304 t3
 
 # Q-Q plot of residuals
 Change the data name as needed to test
@@ -3500,23 +3408,14 @@ shapiro.test(QQ304_residuals)
 # Pairwise t-test with multiple corrections
 Performed on data with outliers removed
 ```{r}
-pairwise_females_t0 <- pairwise.t.test(females304_t0_outliers$daily_activity, females304_t0_outliers$treatment)
-print(pairwise_females_t0)
-
 pairwise_males_t0 <- pairwise.t.test(males304_t0_outliers$daily_activity, males304_t0_outliers$treatment)
 print(pairwise_males_t0)
 
 pairwise_females_t1 <- pairwise.t.test(females304_t1_outliers$daily_activity, females304_t1_outliers$treatment, p.adjust.method = "bonferroni")
 print(pairwise_females_t1)
 
-pairwise_males_t1 <- pairwise.t.test(males304_t1_outliers$daily_activity, males304_t1_outliers$treatment, p.adjust.method = "bonferroni")
-print(pairwise_males_t1)
-
 pairwise_females_t2 <- pairwise.t.test(females304_t2_outliers$daily_activity, females304_t2_outliers$treatment, p.adjust.method = "bonferroni")
 print(pairwise_females_t2)
-
-pairwise_males_t2 <- pairwise.t.test(males304_t2_outliers$daily_activity, males304_t2_outliers$treatment, p.adjust.method = "bonferroni")
-print(pairwise_males_t2)
 
 pairwise_females_t3 <- pairwise.t.test(females304_t3_outliers$daily_activity, females304_t3_outliers$treatment, p.adjust.method = "bonferroni")
 print(pairwise_females_t3)
@@ -3524,8 +3423,8 @@ print(pairwise_females_t3)
 pairwise_males_t3 <- pairwise.t.test(males304_t3_outliers$daily_activity, males304_t3_outliers$treatment, p.adjust.method = "bonferroni")
 print(pairwise_males_t3)
 ```
-Males t0 C-5d, t3 5d-20d and c-20d
-Females t1 5d-20d, t2 5d-20d and c-20d, t3 5d-20d and c-20d
+Males t0 c-5d, t3 c-20d and 5d-20d
+Females t1 5d-20d, t2 c-20d and 5d-20d, t3 c-20d and 5d-20d
 
 
 

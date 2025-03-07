@@ -1,0 +1,335 @@
+---
+title: "Figure 5"
+output: html_document
+date: "2024-11-14"
+---
+
+This script is used to analyze longevity data and to generate the Kaplan-Meier plots
+
+#load libraries
+```{r}
+library(readxl)
+library(writexl)
+library(survival)
+library(survminer)
+library(ggplot2)
+library(ggfortify)
+library(dplyr)
+library(car)
+library(here)
+```
+Reminder that for the here function to work this Figure 5.Rmd must be placed within the same folder as the lifespan excel sheets. The Figure 5.zip file should already have this setup.
+
+#clear workspace
+```{r}
+rm(list = ls())
+```
+#check working directory
+```{r}
+getwd()
+```
+
+#load each dataset and name
+```{r}
+dgrp852 <- read_excel("Longevity_852_2023_04_17.xlsx", sheet = "Master")
+
+dgrp304 <- read_excel("DGRP304_2023_09_25.xlsx", sheet = "Master")
+
+dgrp786 <- read_excel("DGRP786_2023_11_06.xlsx", sheet = "Master")
+
+dgrp301 <- read_excel("DGRP301_2024_06_17.xlsx", sheet = "Master")
+```
+
+#combine datasets into master file for full comparisons
+```{r}
+survival_master <- rbind(dgrp304, dgrp786, dgrp852, dgrp301)
+```
+
+#plot survival curve for figure 4
+```{r}
+survival_plot <- ggsurvplot(
+  survfit(Surv(death_day, status) ~ treatment, data = survival_master),
+  facet.by = c("sex", "genotype"),
+  legend.title = "Treatment",
+  legend.labs = c("Control", "5-day", "20-day"),
+  xlab = "Days",
+  palette = c("#BEBEBE", "#EFC000FF", "#0073C2FF"),
+  surv.median.line = "v",
+  pval = TRUE)
+
+survival_plot
+
+```
+The p-values generated here use a log-rank teest to compare survival distributions of the treatment groups and determine whether there is a significant difference between them. However, it doesn't tell us which groups are different from one another.
+
+#pairwise survdiff compares the curves
+```{r}
+results <- survival_master %>%
+group_by(sex, genotype) %>%
+  do({
+
+# Perform pairwise survdiff for each group
+pw <- pairwise_survdiff(Surv(death_day, status) ~ treatment, data = .)
+
+# Extract p-values and return them as a data frame
+p_values <- pw$p.value
+tibble(p_values = p_values)})
+
+results
+```
+
+Analysis
+We will do our own analysis using type 3 ANOVA and t-tests to look at sex, genotype, and treatment
+#censor the datasets
+```{r}
+surv_master_cen <- subset(survival_master, status == 1)
+dgrp301_cen <- subset(dgrp301, status == 1)
+dgrp304_cen <- subset(dgrp304, status == 1)
+dgrp786_cen <- subset(dgrp786, status == 1)
+dgrp852_cen <- subset(dgrp852, status == 1)
+```
+
+#adjust variables to factors
+```{r}
+surv_master_cen$sex <- as.factor(surv_master_cen$sex)
+surv_master_cen$genotype <- as.factor(surv_master_cen$genotype)
+surv_master_cen$treatment <- as.factor(surv_master_cen$treatment)
+dgrp301_cen$sex <- as.factor(dgrp301_cen$sex)
+dgrp301_cen$treatment <- as.factor(dgrp301_cen$treatment)
+dgrp304_cen$sex <- as.factor(dgrp304_cen$sex)
+dgrp304_cen$treatment <- as.factor(dgrp304_cen$treatment)
+dgrp786_cen$sex <- as.factor(dgrp786_cen$sex)
+dgrp786_cen$treatment <- as.factor(dgrp786_cen$treatment)
+dgrp852_cen$sex <- as.factor(dgrp852_cen$sex)
+dgrp852_cen$treatment <- as.factor(dgrp852_cen$treatment)
+```
+#sanity check
+```{r}
+summary(dgrp301_cen)
+summary(dgrp304_cen)
+summary(dgrp786_cen)
+summary(dgrp852_cen)
+summary(surv_master_cen)
+```
+
+The surv_master has n>5000 which is too big for the shapiro test
+Easiest way to look at normality for a large dataset is visually with a Q-Qplot and histogram
+#Q-Qplot
+Large dip at the start means data is left skewed
+```{r}
+qqnorm(surv_master_cen$death_day)
+qqline(surv_master_cen$death_day)
+```
+#Histogram confirms left skew
+```{r}
+  hist(surv_master_cen$death_day)
+  abline(v = mean(surv_master_cen$death_day), col="red", lwd=3)
+```
+Data is clearly not normal, but this is not surprising since we expect fewer flies to die at the start of the experiment.
+
+
+
+#Normality test 1
+Confirms data not normal for each separate genotype
+```{r}
+dgrp301_cen %>%
+  group_by(sex, genotype) %>%
+  summarize(p_value = shapiro.test(death_day)$p.value, .groups = "drop") %>%
+  filter(p_value < 0.05)
+
+dgrp304_cen %>%
+  group_by(sex, genotype) %>%
+  summarize(p_value = shapiro.test(death_day)$p.value, .groups = "drop") %>%
+  filter(p_value < 0.05)
+
+dgrp786_cen %>%
+  group_by(sex, genotype) %>%
+  summarize(p_value = shapiro.test(death_day)$p.value, .groups = "drop") %>%
+  filter(p_value < 0.05)
+
+dgrp852_cen %>%
+  group_by(sex, genotype) %>%
+  summarize(p_value = shapiro.test(death_day)$p.value, .groups = "drop") %>%
+  filter(p_value < 0.05)
+```
+Data are not normal
+
+Non-parametric test to compare independent groups.
+Limitations: Loss of power, assumes distribution of groups is similar
+#Kruskal test (non-parametric tests for main effects)
+```{r}
+kruskal.test(death_day ~ sex, data = dgrp301_cen)
+kruskal.test(death_day ~ sex, data = dgrp304_cen)
+kruskal.test(death_day ~ sex, data = dgrp786_cen)
+kruskal.test(death_day ~ sex, data = dgrp852_cen)
+```
+Sex is significant for all of them
+#adjust KWs for multiple testing
+```{r}
+p <- c(0.0004845, 2.2e-16, 4.113e-06, 0.0363)
+p.adjust(p, method = "fdr", n = length(p))
+```
+Sex still significant even with p adjustment
+
+#KW on treatment
+```{r}
+kruskal.test(death_day ~ treatment, data = dgrp301_cen)
+kruskal.test(death_day ~ treatment, data = dgrp304_cen)
+kruskal.test(death_day ~ treatment, data = dgrp786_cen)
+kruskal.test(death_day ~ treatment, data = dgrp852_cen)
+```
+#adjust KWs for multiple testing
+```{r}
+p <- c(2.544e-05, 4.004e-09, 0.1385, 0.03384)
+p.adjust(p, method = "fdr", n = length(p))
+```
+Main treatment effect in 301, 304, and 852 with p adjustment
+
+#subset by sex for each genotype
+```{r}
+lifespan_301_females <- dgrp301_cen %>% filter(sex == "F")
+lifespan_301_males <- dgrp301_cen %>% filter(sex == "M")
+
+lifespan_304_females <- dgrp304_cen %>% filter(sex == "F")
+lifespan_304_males <- dgrp304_cen %>% filter(sex == "M")
+
+lifespan_786_females <- dgrp786_cen %>% filter(sex == "F")
+lifespan_786_males <- dgrp786_cen %>% filter(sex == "M")
+
+lifespan_852_females <- dgrp852_cen %>% filter(sex == "F")
+lifespan_852_males <- dgrp852_cen %>% filter(sex == "M")
+```
+
+#analysis with Type III ANOVA
+```{r}
+dgrp301_anova_female <- aov(death_day ~ treatment, data = lifespan_301_females)
+Anova(dgrp301_anova_female, type = 3)
+
+dgrp301_anova_male <- aov(death_day ~ treatment, data = lifespan_301_males)
+Anova(dgrp301_anova_male, type = 3)
+
+dgrp304_anova_female <- aov(death_day ~ treatment, data = lifespan_304_females)
+Anova(dgrp304_anova_female, type = 3)
+
+dgrp304_anova_male <- aov(death_day ~ treatment, data = lifespan_304_males)
+Anova(dgrp304_anova_male, type = 3)
+
+dgrp786_anova_female <- aov(death_day ~ treatment, data = lifespan_786_females)
+Anova(dgrp786_anova_female, type = 3)
+
+dgrp786_anova_male <- aov(death_day ~ treatment, data = lifespan_786_males)
+Anova(dgrp786_anova_male, type = 3)
+
+dgrp852_anova_female <- aov(death_day ~ treatment, data = lifespan_852_females)
+Anova(dgrp852_anova_female, type = 3)
+
+dgrp852_anova_male <- aov(death_day ~ treatment, data = lifespan_852_males)
+Anova(dgrp852_anova_male, type = 3)
+
+```
+#adjust ANOVAs for multiple testing
+```{r}
+p <- c(0.001042, 0.5696, 0.4854, 1.163e-07, 0.9355, 0.3824, 0.4761, 0.009064)
+p.adjust(p, method = "fdr", n = length(p))
+```
+Female 301, male 304, male 852
+
+We will now run a Q-Q plot and normality test for the best dataset
+# Q-Q plot of residuals
+Change the data name as needed to test all of them
+```{r}
+residuals <- resid(dgrp301_anova_female)
+qqnorm(residuals)
+qqline(residuals, col = "red")
+```
+#check normality no residuals
+```{r}
+shapiro.test(residuals)
+```
+None are normal but this is expected because it's lifespan, so we are not surprised by the left skew
+
+#Pairwise t-test with multiple corrections
+0=contro, 1=5d, 2=20d
+This compares the means
+```{r}
+pairwise_301females <- pairwise.t.test(lifespan_301_females$death_day, lifespan_301_females$treatment)
+print(pairwise_301females)
+
+pairwise_304males <- pairwise.t.test(lifespan_304_males$death_day, lifespan_304_males$treatment)
+print(pairwise_304males)
+
+pairwise_852males <- pairwise.t.test(lifespan_852_males$death_day, lifespan_852_males$treatment)
+print(pairwise_852males)
+```
+Significant treatment effects found from the t.test:
+301 female c-20d, 5d-20d
+304 male c-5d, c-20d
+852 male c-5d, c-20d
+
+Now we will analyze if there is a sex and genotype effects using the dataset with everything, surv_master_cen
+#Kruskal test
+```{r}
+kruskal.test(death_day ~ sex, data = surv_master_cen)
+kruskal.test(death_day ~ genotype, data = surv_master_cen)
+```
+Sex and genotype main effects
+#analysis with Type III ANOVA
+```{r}
+surv_master_anova <- aov(death_day ~ sex*genotype*treatment, data = surv_master_cen)
+Anova(surv_master_anova, type = 3)
+```
+#adjust ANOVA for multiple testing
+```{r}
+p <- c(2.2e-16, 0.2549188, 4.055e-11, 0.0006275, 0.1790894, 0.1759962, 0.0632764, 3.789e-06)
+p.adjust(p, method = "fdr", n = length(p))
+```
+
+Takeaways:
+-sex and genotype impact death_day
+-we see significant treatment effects for 301 females, 304 males, and 852 males
+
+
+#Additional testing
+Values used in-text in manuscript
+```{r}
+lifespan_301_females %>%
+  group_by(treatment) %>%
+  summarize(median_survival = median(death_day), .groups = "drop")
+
+lifespan_852_males %>%
+  group_by(treatment) %>%
+  summarize(median_survival = median(death_day), .groups = "drop")
+
+lifespan_304_males %>%
+  group_by(treatment) %>%
+  summarize(median_survival = median(death_day), .groups = "drop")
+
+```
+
+#subset survival master by sex
+```{r}
+treatment_c_data <- subset(surv_master_cen, treatment == "0")
+
+treatment_c_data %>%
+  group_by(sex, genotype) %>%
+  summarize(median_survival = median(death_day), .groups = "drop")
+```
+# Run Kruskal-Wallis test for each genotype and sex group
+```{r}
+kruskal_results <- treatment_c_data %>%
+  group_by(genotype) %>%
+  do({
+    # Perform Kruskal-Wallis test for 'death_day' by 'sex' within each genotype
+    kruskal_test <- kruskal.test(death_day ~ sex, data = .)
+    
+    # Return the results as a data frame
+    tibble(
+      genotype = unique(.$genotype),
+      p_value = kruskal_test$p.value,
+      statistic = kruskal_test$statistic
+    )
+  })
+
+print(kruskal_results)
+```
+No sex difference
