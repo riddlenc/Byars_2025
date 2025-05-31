@@ -1,5 +1,5 @@
-# Byars_2024
-Information associated with the Byars et al 2024 publication
+# Byars_2025
+Information associated with the Byars et al 2025 publication
 
 ## Figures
 **1. Figure 1**
