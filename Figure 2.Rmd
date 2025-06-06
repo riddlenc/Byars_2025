@@ -1,0 +1,640 @@
+---
+title: "Figure 1"
+output: html_document
+date: "2024-11-14"
+---
+
+#load libraries
+```{r}
+library(ggplot2)
+library(damr)
+library(ggetho)
+library(dplyr)
+library(here)
+library(ARTool)
+library(rstatix)
+```
+With "here" we do not need to set a working directory. Keep script and data in same folder as the Data subfolder (has .txt files) and the metadata.csv - It should already be setup and ready to use in the Data 1.zip.
+
+#clear workspace
+```{r}
+rm(list = ls())
+```
+#check working direcetory
+```{r}
+getwd()
+```
+#set file name
+```{r}
+DATA_DIR <- "Data"
+```
+#check all files are present
+```{r}
+list.files(DATA_DIR, pattern="*.txt|*.csv")
+```
+
+
+#define metavariables for the corresponding legend within each genotype
+```{r}
+data <- fread("metadata.csv")
+data
+```
+#link metadata based on genotype
+```{r}
+metadata <- link_dam_metadata(data, result_dir = DATA_DIR)
+metadata
+```
+#load into a behavr structure
+Exclude mated animals not under "OK" status, find and load matching data
+```{r}
+dt <- load_dam(metadata[status == "OK"])
+```
+#sanity check
+```{r}
+summary(dt)
+```
+#rejoin data and divide by counts, nd is normalized activity per fly
+```{r}
+dt <- rejoin(dt)
+dt[, "nd"] <- dt[, "activity"] / dt[, "counts"]
+```
+#turn back into behavr table
+```{r}
+dt <- behavr(dt, metadata [status == "OK"])
+```
+#make lights on at 7AM the 0
+```{r}
+dt[,t := t - hours(xmv(baseline_time))]
+```
+#subset data for control groups on day 26
+```{r}
+genotype_controls1 <- subset(dt, timepoint == "t1")
+genotype_controls <- subset(genotype_controls1, treatment == "c")
+```
+
+# Shift the time for genotypes 786 and 304 by -3600 seconds
+DGRP786 and DGRP304 were the only two genotypes impacted by daylights savings. So set them back by 1hr. In the metadata sheet I already set the 0 with the daylights savings accounted for so instead of 7=0 it was 6=0.
+When plotting all of the data together we had to shift 786 and 304 x-axis left 1hr to align with the other axes.
+```{r}
+genotype_controls$t <- ifelse(genotype_controls$genotype %in% c(786, 304), genotype_controls$t - 3600, genotype_controls$t)
+```
+
+
+#plot the activity for controls on day 26 over 24 hours
+```{r}
+graph_controls <- ggetho(genotype_controls, aes(x = t, y = nd, colour = treatment)) + 
+  stat_pop_etho() + 
+  facet_grid(sex ~ genotype) +
+  labs(y = "Activity per fly", x = "Time (h)") + 
+  theme_bw() +
+  scale_color_manual(values = c("purple"), name = "Treatment") +
+  scale_fill_manual(values = c("purple"), name = "Treatment") +
+  theme(strip.background = element_rect(fill = "white"), 
+        strip.text = element_text(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = "none") +
+  annotate('rect', xmin = -25200, xmax = 0, ymin = 0, ymax = 12, alpha = 0.3, fill = "darkgrey") +
+  annotate('rect', xmin = 43200, xmax = 59500, ymin = 0, ymax = 12, alpha = 0.3, fill = "darkgrey")
+
+graph_controls
+
+```
+
+
+---
+Analysis
+---
+#aggregate the data by region_id to analyze total activity
+```{r}
+activity_summary <- genotype_controls %>% 
+  group_by(genotype, sex, region_id) %>% 
+  summarise(
+    mean_act = mean(nd, na.rm = TRUE),
+    total_act = sum(nd, na.rm = TRUE),
+    .groups = "drop"
+  )
+```
+#average the data for each sex and genotype combination
+Values utilized in the manuscript
+```{r}
+activity_summary_avg <- activity_summary %>%
+  group_by(sex, genotype) %>%
+  summarise(
+    avg_mean_act = mean(mean_act, na.rm = TRUE),
+    avg_total_act = mean(total_act, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+activity_summary_avg
+```
+
+#shapiro-wilk normality test
+```{r}
+activity_summary %>%
+  group_by(sex, genotype) %>%
+  shapiro_test(total_act) %>%
+  subset(p < 0.05)
+```
+5 groups not normal
+
+#convert sex and genotype variables to factors
+```{r}
+activity_summary$genotype <- as.factor(activity_summary$genotype)
+activity_summary$sex <- as.factor(activity_summary$sex)
+```
+
+#Kruskal test (non-parametric tests for main effects)
+```{r}
+kruskal.test(total_act ~ sex, data = activity_summary)
+kruskal.test(total_act ~ genotype, data = activity_summary)
+```
+Sex and genotype are significant
+
+#subset by genotype and perform Kruskal test comparing sexes, p-values in text
+```{r}
+dgrp301 <- subset(activity_summary, genotype == "301")
+dgrp304 <- subset(activity_summary, genotype == "304")
+dgrp786 <- subset(activity_summary, genotype == "786")
+dgrp852 <- subset(activity_summary, genotype == "852")
+
+kruskal.test(total_act ~ sex, data = dgrp301)
+kruskal.test(total_act ~ sex, data = dgrp304)
+kruskal.test(total_act ~ sex, data = dgrp786)
+kruskal.test(total_act ~ sex, data = dgrp852)
+```
+Sex is significant for 301, 786, and 852
+
+
+#outlier and extreme outlier detection
+```{r}
+activity_summary %>%
+  group_by(sex, genotype) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,  # Regular lower bound for outliers
+    upper_bound = Q3 + 1.5 * IQR,  # Regular upper bound for outliers
+    extreme_lower_bound = Q1 - 3 * IQR,  # Extreme lower bound for extreme outliers
+    extreme_upper_bound = Q3 + 3 * IQR,  # Extreme upper bound for extreme outliers
+    outlier_flag = total_act < lower_bound | total_act > upper_bound,
+    extreme_outlier_flag = total_act < extreme_lower_bound | total_act > extreme_upper_bound
+  ) %>%
+  ungroup() %>%
+  summarize(
+    outlier_count = sum(outlier_flag),
+    extreme_outlier_count = sum(extreme_outlier_flag)
+  )
+```
+7 outliers and 3 extreme outliers
+
+#remove all the outliers
+```{r}
+activity_summary_outliers <- activity_summary %>%
+  group_by(sex, genotype) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,
+    upper_bound = Q3 + 1.5 * IQR,
+    outlier_flag = total_act < lower_bound | total_act > upper_bound
+  ) %>%
+  ungroup() %>%
+  filter(outlier_flag == FALSE) %>%
+  select(-Q1, -Q3, -IQR, -lower_bound, -upper_bound)
+```
+
+#remove only the extreme outliers
+```{r}
+activity_summary_extremeoutliers <- activity_summary %>%
+  group_by(sex, genotype) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    extreme_lower_bound = Q1 - 3 * IQR,
+    extreme_upper_bound = Q3 + 3 * IQR,
+    extreme_outlier_flag = total_act < extreme_lower_bound | total_act > extreme_upper_bound
+  ) %>%
+  ungroup() %>%
+  filter(!extreme_outlier_flag) %>%
+  select(-Q1, -Q3, -IQR, -extreme_lower_bound, -extreme_upper_bound)
+```
+
+We realized the ordering of our variables in a regular ANOVA model matters so we are switching to a Type III sums of squares design to deal with these inconsistencies
+#mixed-effects model analysis with Type III ANOVA
+```{r}
+activity_summary_aov <- aov(total_act ~ sex * genotype, data = activity_summary)
+Anova(activity_summary_aov, type = 3)
+
+activity_summary_outliers_aov <- aov(total_act ~ sex * genotype, data = activity_summary_outliers)
+Anova(activity_summary_outliers_aov, type = 3)
+
+activity_summary_extremeoutliers_aov <- aov(total_act ~ sex * genotype, data = activity_summary_extremeoutliers)
+Anova(activity_summary_extremeoutliers_aov, type = 3)
+```
+
+Sex, genotype, and sex:genotype are significant
+#now compare models with AIC function for females and males
+```{r}
+AIC(activity_summary_aov, activity_summary_outliers_aov, activity_summary_extremeoutliers_aov)
+```
+The dataset with the outliers removed has the lowest/best AIC score
+
+We will run a Q-Q plot and normality test for the best dataset
+# Q-Q plot of residuals
+```{r}
+residuals <- resid(activity_summary_outliers_aov)
+qqnorm(residuals)
+qqline(residuals, col = "red")
+```
+#check normality no residuals
+```{r}
+shapiro.test(residuals)
+```
+Data is not normal
+
+# Pairwise t-test with multiple corrections
+```{r}
+pairwise_sex <- pairwise.t.test(activity_summary_outliers$total_act, activity_summary_outliers$sex)
+print(pairwise_sex)
+
+pairwise_genotype <- pairwise.t.test(activity_summary_outliers$total_act, activity_summary_outliers$genotype)
+print(pairwise_genotype)
+```
+
+
+
+Analysis of controls at the other timepoints t0, t2, and t3
+We want to know if sex, genotype, and sex:genotype remain significant throughout the lifespan.
+---
+T0 Analysis
+#subset data for control groups on day 11
+```{r}
+genotype_controls0 <- subset(dt, timepoint == "t0")
+genotype_controls_t0 <- subset(genotype_controls0, treatment == "c")
+```
+#aggregate the data by region_id to analyze the total activity
+```{r}
+activity_summary_t0 <- genotype_controls_t0 %>% 
+  group_by(genotype, sex, region_id) %>% 
+  summarise(
+    mean_act = mean(nd, na.rm = TRUE),
+    total_act = sum(nd, na.rm = TRUE),
+    .groups = "drop"
+  )
+```
+#shapiro-wilk normality test
+```{r}
+activity_summary_t0 %>%
+  group_by(sex, genotype) %>%
+  shapiro_test(total_act) %>%
+  subset(p < 0.05)
+```
+1 group not normal
+
+#convert variables to factor
+```{r}
+activity_summary_t0$genotype <- as.factor(activity_summary_t0$genotype)
+activity_summary_t0$sex <- as.factor(activity_summary_t0$sex)
+```
+
+#Kruskal test (non-parametric tests for main effects)
+```{r}
+kruskal.test(total_act ~ sex, data = activity_summary_t0)
+kruskal.test(total_act ~ genotype, data = activity_summary_t0)
+```
+
+#outlier and extreme outlier detection
+```{r}
+activity_summary_t0 %>%
+  group_by(sex, genotype) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,  # Regular lower bound for outliers
+    upper_bound = Q3 + 1.5 * IQR,  # Regular upper bound for outliers
+    extreme_lower_bound = Q1 - 3 * IQR,  # Extreme lower bound for extreme outliers
+    extreme_upper_bound = Q3 + 3 * IQR,  # Extreme upper bound for extreme outliers
+    outlier_flag = total_act < lower_bound | total_act > upper_bound,
+    extreme_outlier_flag = total_act < extreme_lower_bound | total_act > extreme_upper_bound
+  ) %>%
+  ungroup() %>%
+  summarize(
+    outlier_count = sum(outlier_flag),
+    extreme_outlier_count = sum(extreme_outlier_flag)
+  )
+```
+7 outliers
+
+#remove the outlier
+```{r}
+activity_summary_t0_outliers <- activity_summary_t0 %>%
+  group_by(sex, genotype) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,
+    upper_bound = Q3 + 1.5 * IQR,
+    outlier_flag = total_act < lower_bound | total_act > upper_bound
+  ) %>%
+  ungroup() %>%
+  filter(outlier_flag == FALSE) %>%
+  select(-Q1, -Q3, -IQR, -lower_bound, -upper_bound)
+```
+
+#mixed-effects model analysis with Type III ANOVA
+```{r}
+activity_summary_t0_aov <- aov(total_act ~ sex * genotype, data = activity_summary_t0)
+Anova(activity_summary_t0_aov, type = 3)
+
+activity_summary_t0_outliers_aov <- aov(total_act ~ sex * genotype, data = activity_summary_t0_outliers)
+Anova(activity_summary_t0_outliers_aov, type = 3)
+```
+
+Sex, genotype, and sex:genotype are significant
+#now compare models with AIC function for females and males
+```{r}
+AIC(activity_summary_t0_aov, activity_summary_t0_outliers_aov)
+```
+The dataset with the outliers removed has the lowest/best AIC score
+
+We will run a Q-Q plot and normality test for the best dataset
+# Q-Q plot of residuals
+```{r}
+residuals_t0 <- resid(activity_summary_t0_outliers_aov)
+qqnorm(residuals_t0)
+qqline(residuals_t0, col = "red")
+```
+#check normality no residuals
+```{r}
+shapiro.test(residuals_t0)
+```
+Data is not normal
+
+
+t0 sex, genotype, and sex:genotype are significant. This is the very first timepoint on day 11.
+
+
+---
+T2 Analysis
+---
+
+#subset data for control groups on day 37
+```{r}
+genotype_controls2 <- subset(dt, timepoint == "t2")
+genotype_controls_t2 <- subset(genotype_controls2, treatment == "c")
+```
+
+#aggregate the data by region_id to analyze the total activity
+```{r}
+activity_summary_t2 <- genotype_controls_t2 %>% 
+  group_by(genotype, sex, region_id) %>% 
+  summarise(
+    mean_act = mean(nd, na.rm = TRUE),
+    total_act = sum(nd, na.rm = TRUE),
+    .groups = "drop"
+  )
+```
+
+#shapiro-wilk normality test
+```{r}
+activity_summary_t2 %>%
+  group_by(sex, genotype) %>%
+  shapiro_test(total_act) %>%
+  subset(p < 0.05)
+```
+3 groups not normal
+
+#convert variables to factor
+```{r}
+activity_summary_t2$genotype <- as.factor(activity_summary_t2$genotype)
+activity_summary_t2$sex <- as.factor(activity_summary_t2$sex)
+```
+
+#Kruskal test (non-parametric tests for main effects)
+```{r}
+kruskal.test(total_act ~ sex, data = activity_summary_t2)
+kruskal.test(total_act ~ genotype, data = activity_summary_t2)
+```
+
+# Outlier and Extreme Outlier Detection for t2
+```{r}
+activity_summary_t2 %>%
+  group_by(sex, genotype) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,  # Regular lower bound for outliers
+    upper_bound = Q3 + 1.5 * IQR,  # Regular upper bound for outliers
+    extreme_lower_bound = Q1 - 3 * IQR,  # Extreme lower bound for extreme outliers
+    extreme_upper_bound = Q3 + 3 * IQR,  # Extreme upper bound for extreme outliers
+    outlier_flag = total_act < lower_bound | total_act > upper_bound,
+    extreme_outlier_flag = total_act < extreme_lower_bound | total_act > extreme_upper_bound
+  ) %>%
+  ungroup() %>%
+  summarize(
+    outlier_count = sum(outlier_flag),
+    extreme_outlier_count = sum(extreme_outlier_flag)
+  )
+```
+4 outliers, 1 extreme
+
+# Removing the Outliers for t2
+```{r}
+activity_summary_t2_outliers <- activity_summary_t2 %>%
+  group_by(sex, genotype) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,
+    upper_bound = Q3 + 1.5 * IQR,
+    outlier_flag = total_act < lower_bound | total_act > upper_bound
+  ) %>%
+  ungroup() %>%
+  filter(outlier_flag == FALSE) %>%
+  select(-Q1, -Q3, -IQR, -lower_bound, -upper_bound)
+```
+
+#remove only the extreme outliers
+```{r}
+activity_summary_t2_extremeoutliers <- activity_summary_t2 %>%
+  group_by(sex, genotype) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    extreme_lower_bound = Q1 - 3 * IQR,
+    extreme_upper_bound = Q3 + 3 * IQR,
+    extreme_outlier_flag = total_act < extreme_lower_bound | total_act > extreme_upper_bound
+  ) %>%
+  ungroup() %>%
+  filter(!extreme_outlier_flag) %>%
+  select(-Q1, -Q3, -IQR, -extreme_lower_bound, -extreme_upper_bound)
+```
+
+# Mixed-Effects Model Analysis with Type III ANOVA for t2
+```{r}
+activity_summary_t2_aov <- aov(total_act ~ sex * genotype, data = activity_summary_t2)
+Anova(activity_summary_t2_aov, type = 3)
+
+activity_summary_t2_outliers_aov <- aov(total_act ~ sex * genotype, data = activity_summary_t2_outliers)
+Anova(activity_summary_t2_outliers_aov, type = 3)
+
+activity_summary_t2_extremeoutliers_aov <- aov(total_act ~ sex * genotype, data = activity_summary_t2_extremeoutliers)
+Anova(activity_summary_t2_extremeoutliers_aov, type = 3)
+```
+
+# Comparing Models with AIC for t2
+```{r}
+AIC(activity_summary_t2_aov, activity_summary_t2_outliers_aov, activity_summary_t2_extremeoutliers_aov)
+```
+Again outliers data is better
+
+# Q-Q Plot of Residuals for t2
+```{r}
+residuals_t2 <- resid(activity_summary_t2_outliers_aov)
+qqnorm(residuals_t2)
+qqline(residuals_t2, col = "red")
+```
+# Check Normality of Residuals for t2
+```{r}
+shapiro.test(residuals_t2)
+```
+
+
+Sex and sex:genotype are significant but we lost genotype according to the type 3 anova. Kruskal test still claims genotype is significant.
+
+
+---
+T3 Analysis
+---
+#subset data for control groups on day 51
+```{r}
+genotype_controls3 <- subset(dt, timepoint == "t3")
+genotype_controls_t3 <- subset(genotype_controls3, treatment == "c")
+```
+#aggregate the data by region_id to analyze the total activity
+```{r}
+activity_summary_t3 <- genotype_controls_t3 %>% 
+  group_by(genotype, sex, region_id) %>% 
+  summarise(
+    mean_act = mean(nd, na.rm = TRUE),
+    total_act = sum(nd, na.rm = TRUE),
+    .groups = "drop"
+  )
+```
+#shapiro-wilk normality test
+```{r}
+activity_summary_t3 %>%
+  group_by(sex, genotype) %>%
+  shapiro_test(total_act) %>%
+  subset(p < 0.05)
+```
+5 groups not normal
+
+#convert variables to factors
+```{r}
+activity_summary_t3$genotype <- as.factor(activity_summary_t3$genotype)
+activity_summary_t3$sex <- as.factor(activity_summary_t3$sex)
+```
+#Kruskal test (non-parametric tests for main effects)
+```{r}
+kruskal.test(total_act ~ sex, data = activity_summary_t3)
+kruskal.test(total_act ~ genotype, data = activity_summary_t3)
+```
+
+# Outlier and Extreme Outlier Detection for t3
+```{r}
+activity_summary_t3 %>%
+  group_by(sex, genotype) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,  # Regular lower bound for outliers
+    upper_bound = Q3 + 1.5 * IQR,  # Regular upper bound for outliers
+    extreme_lower_bound = Q1 - 3 * IQR,  # Extreme lower bound for extreme outliers
+    extreme_upper_bound = Q3 + 3 * IQR,  # Extreme upper bound for extreme outliers
+    outlier_flag = total_act < lower_bound | total_act > upper_bound,
+    extreme_outlier_flag = total_act < extreme_lower_bound | total_act > extreme_upper_bound
+  ) %>%
+  ungroup() %>%
+  summarize(
+    outlier_count = sum(outlier_flag),
+    extreme_outlier_count = sum(extreme_outlier_flag)
+  )
+```
+8 outliers, 4 extreme outliers
+
+# Removing the Outliers for t3
+```{r}
+activity_summary_t3_outliers <- activity_summary_t3 %>%
+  group_by(sex, genotype) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    lower_bound = Q1 - 1.5 * IQR,
+    upper_bound = Q3 + 1.5 * IQR,
+    outlier_flag = total_act < lower_bound | total_act > upper_bound
+  ) %>%
+  ungroup() %>%
+  filter(outlier_flag == FALSE) %>%
+  select(-Q1, -Q3, -IQR, -lower_bound, -upper_bound)
+```
+# Remove only the extreme outliers for t3
+```{r}
+activity_summary_t3_extremeoutliers <- activity_summary_t3 %>%
+  group_by(sex, genotype) %>%
+  mutate(
+    Q1 = quantile(total_act, 0.25, na.rm = TRUE),
+    Q3 = quantile(total_act, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    extreme_lower_bound = Q1 - 3 * IQR,
+    extreme_upper_bound = Q3 + 3 * IQR,
+    extreme_outlier_flag = total_act < extreme_lower_bound | total_act > extreme_upper_bound
+  ) %>%
+  ungroup() %>%
+  filter(!extreme_outlier_flag) %>%
+  select(-Q1, -Q3, -IQR, -extreme_lower_bound, -extreme_upper_bound)
+```
+
+# Mixed-Effects Model Analysis with Type III ANOVA for t3
+```{r}
+activity_summary_t3_aov <- aov(total_act ~ sex * genotype, data = activity_summary_t3)
+Anova(activity_summary_t3_aov, type = 3)
+
+activity_summary_t3_outliers_aov <- aov(total_act ~ sex * genotype, data = activity_summary_t3_outliers)
+Anova(activity_summary_t3_outliers_aov, type = 3)
+
+activity_summary_t3_extremeoutliers_aov <- aov(total_act ~ sex * genotype, data = activity_summary_t3_extremeoutliers)
+Anova(activity_summary_t3_extremeoutliers_aov, type = 3)
+```
+
+# Comparing Models with AIC for t3
+```{r}
+AIC(activity_summary_t3_aov, activity_summary_t3_outliers_aov, activity_summary_t3_extremeoutliers_aov)
+```
+Again outliers data is better
+
+# Q-Q Plot of Residuals for t3
+```{r}
+residuals_t3 <- resid(activity_summary_t3_outliers_aov)
+qqnorm(residuals_t3)
+qqline(residuals_t3, col = "red")
+```
+# Check Normality of Residuals for t3
+```{r}
+shapiro.test(residuals_t3)
+```
+Data is not normal
+
+Sex and sex:genotype are significant, but once again we have lost genotype from the type 3 ANOVA. Genotype was significant according to Kruskal Wallis test.
+
