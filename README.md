@@ -7,8 +7,8 @@ Information associated with the Byars et al. 2025 publication
 
 **2. Figure 2**
 
-- [Data](https://github.com/riddlenc/Byars_2024/blob/fe10a65d7cae5b0e450c412ec5cac586ffbf596a/Data_2.zip)
-- [Script](https://github.com/riddlenc/Byars_2024/blob/7aa2397dba6dd1c4070235700e4c7c07747c9c6a/Figure%202.Rmd)
+- [Data](update)
+- [Script](update)
 
 
 **3. Figure 3**
@@ -19,8 +19,8 @@ Information associated with the Byars et al. 2025 publication
      
 **4. Figure 4**
 
-- [Data](https://github.com/riddlenc/Byars_2024/blob/24c61cee70bc024b69e74da8a1dd6389c4faaf2d/Data_4.zip)
-- [Script](https://github.com/riddlenc/Byars_2024/blob/a7af1644201481a52a4623504dd08c2d99504816/Figure%204.Rmd)
+- [Data](update)
+- [Script](update)
 
 
 **5. Figure 5**
@@ -32,6 +32,6 @@ Information associated with the Byars et al. 2025 publication
 
 **1. Supplemental Figure S1**
 
-- [Data](https://github.com/riddlenc/Byars_2024/blob/f37ecefb61a2698722325c7291cce1b2bc16de5a/Data_S1.zip)
-- [Script](https://github.com/riddlenc/Byars_2024/blob/28994540b69c18017e1d95614a263b8eaaaf0155/Supplemental%20Figure%201.Rmd)
+- [Data](update)
+- [Script](update)
 
