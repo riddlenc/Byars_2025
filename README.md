@@ -20,7 +20,7 @@ Information associated with the Byars et al. 2025 publication
 **4. Figure 4**
 
 - [Data](https://github.com/riddlenc/Byars_2024/blob/cf3dd4f3f7dc9c360974f3ba81461560e4617972/Data_4.zip)
-- [Script](https://github.com/riddlenc/Byars_2024/blob/02799dea802ce44e074c9afae113e0906b034732/Figure%204.Rmd)
+- [Script](https://github.com/riddlenc/Byars_2024/blob/e8c352dcb4ee960d92a6091807f4e00ecda474b1/Figure%204.Rmd)
 
 
 **5. Figure 5**
