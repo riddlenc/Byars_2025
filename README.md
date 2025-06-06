@@ -32,6 +32,6 @@ Information associated with the Byars et al. 2025 publication
 
 **1. Supplemental Figure S1**
 
-- [Data](update)
+- [Data](https://github.com/riddlenc/Byars_2024/blob/35915fb9646a9226dd5d623d3ad3a5e615b65172/Data_S1.zip)
 - [Script](update)
 
